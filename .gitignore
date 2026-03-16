@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+
+# Environment files
+.env
+backend/.env
+frontend/.env
+
+# Build output
+frontend/dist/
+bin-debug/
+bin-release/
+[Oo]bj/
+[Bb]in/
+
+# IDE / Editor
+.settings/
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Uploads (keep directory structure, ignore uploaded files)
+backend/uploads/profiles/*
+backend/uploads/projects/*
+backend/uploads/resources/*
+backend/uploads/posts/*
+!backend/uploads/.gitkeep
+!backend/uploads/profiles/.gitkeep
+!backend/uploads/projects/.gitkeep
+!backend/uploads/resources/.gitkeep
+!backend/uploads/posts/.gitkeep
+
+# Executables
+*.swf
+*.air
+*.ipa
+*.apk
