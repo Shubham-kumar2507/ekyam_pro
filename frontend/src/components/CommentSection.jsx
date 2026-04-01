@@ -3,8 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import api from '../api/api';
-
-const BASE = 'http://localhost:5000';
+import { getMediaUrl } from '../utils/media';
 
 function timeAgo(date) {
     const s = Math.floor((Date.now() - new Date(date)) / 1000);
@@ -74,7 +73,7 @@ export default function CommentSection({ postId, onCommentCountChange }) {
                                 <Link to={`/users/${comment.author?._id}`} style={{ textDecoration: 'none' }}>
                                     <div style={avatarSmall}>
                                         {comment.author?.profileImage
-                                            ? <img src={`${BASE}${comment.author.profileImage}`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                            ? <img src={getMediaUrl(comment.author.profileImage)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                             : comment.author?.fullName?.[0] || '?'}
                                     </div>
                                 </Link>
@@ -103,7 +102,7 @@ export default function CommentSection({ postId, onCommentCountChange }) {
                 <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem', alignItems: 'center' }}>
                     <div style={avatarSmall}>
                         {user.profileImage
-                            ? <img src={`${BASE}${user.profileImage}`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ? <img src={getMediaUrl(user.profileImage)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             : user.fullName?.[0] || '?'}
                     </div>
                     <input

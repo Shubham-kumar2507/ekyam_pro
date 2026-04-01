@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/api';
+import { getMediaUrl } from '../utils/media';
 
 export default function CommunityChat() {
     const { id } = useParams();
@@ -54,7 +55,7 @@ export default function CommunityChat() {
         } catch { }
     };
 
-    const imgUrl = (img) => img ? (img.startsWith('http') ? img : `http://localhost:5000${img}`) : null;
+    const imgUrl = (img) => getMediaUrl(img);
 
     if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '80vh' }}><i className="fas fa-spinner fa-spin" style={{ fontSize: '2rem', color: '#4f46e5' }}></i></div>;
 

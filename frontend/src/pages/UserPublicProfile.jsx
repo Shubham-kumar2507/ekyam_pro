@@ -3,8 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/api';
 import PostCard from '../components/PostCard';
-
-const BASE = 'http://localhost:5000';
+import { getMediaUrl } from '../utils/media';
 
 export default function UserPublicProfile() {
     const { id } = useParams();
@@ -154,7 +153,7 @@ export default function UserPublicProfile() {
                 overflow: 'hidden', flexShrink: 0
             }}>
                 {u.profileImage
-                    ? <img src={`${BASE}${u.profileImage}`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ? <img src={getMediaUrl(u.profileImage)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     : u.fullName?.[0] || '?'}
             </div>
             <div>
@@ -173,7 +172,7 @@ export default function UserPublicProfile() {
             }}>
                 <div style={avatarStyle}>
                     {profile.profileImage
-                        ? <img src={`${BASE}${profile.profileImage}`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ? <img src={getMediaUrl(profile.profileImage)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         : profile.fullName?.[0] || '?'}
                 </div>
                 <h1 style={{ fontSize: '1.8rem', fontWeight: '800', marginTop: '1rem', marginBottom: '0.2rem' }}>

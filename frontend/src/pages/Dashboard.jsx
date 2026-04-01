@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import api from '../api/api';
+import { getMediaUrl } from '../utils/media';
 
 export default function Dashboard() {
     const { user } = useAuth();
@@ -31,9 +32,7 @@ export default function Dashboard() {
 
     const card = { background: theme.bgCard, borderRadius: '8px', boxShadow: theme.shadow, padding: '1.5rem', border: `1px solid ${theme.border}`, transition: 'background-color 0.3s ease' };
     const typeIcons = { document: 'fas fa-file-alt', link: 'fas fa-link', video: 'fas fa-video', image: 'fas fa-image', code: 'fas fa-code', other: 'fas fa-file' };
-    const profileImageUrl = user?.profileImage
-        ? (user.profileImage.startsWith('http') ? user.profileImage : `http://localhost:5000${user.profileImage}`)
-        : null;
+    const profileImageUrl = getMediaUrl(user?.profileImage);
 
     if (loading) return (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
@@ -41,17 +40,24 @@ export default function Dashboard() {
         </div>
     );
 
+    const getGreeting = () => {
+        const h = new Date().getHours();
+        if (h < 12) return 'Good Morning';
+        if (h < 17) return 'Good Afternoon';
+        return 'Good Evening';
+    };
+
     return (
         <div style={{ minHeight: '100vh', background: theme.bg, fontFamily: "'Inter', 'Segoe UI', sans-serif", transition: 'background-color 0.3s ease' }}>
             <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '2rem 1rem' }}>
                 {/* Welcome */}
                 <div style={{ marginBottom: '2rem' }}>
-                    <h1 style={{ fontSize: '1.75rem', fontWeight: '700', color: theme.text }}>Welcome, {user?.fullName || user?.username}!</h1>
+                    <h1 style={{ fontSize: '1.75rem', fontWeight: '700', color: theme.text }}>{getGreeting()}, {user?.fullName || user?.username}! 👋</h1>
                     <p style={{ color: theme.textMuted, marginTop: '0.25rem' }}>Access your projects, resources, and connect with communities</p>
                 </div>
 
                 {/* Main Grid */}
-                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1.5rem' }}>
+                <div className="dashboard-grid" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1.5rem' }}>
                     {/* Left Column */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                         {/* Overview Stats */}
@@ -94,7 +100,7 @@ export default function Dashboard() {
                                                 <Link to={`/projects/${p._id}`} style={{ flexShrink: 0 }}>
                                                     <div style={{ width: '52px', height: '52px', borderRadius: '10px', overflow: 'hidden', background: theme.accentLight, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                                         {p.image ? (
-                                                            <img src={`http://localhost:5000${p.image}`} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                            <img src={getMediaUrl(p.image)} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                                         ) : (
                                                             <i className="fas fa-project-diagram" style={{ fontSize: '1.2rem', color: theme.accentText }}></i>
                                                         )}
@@ -189,7 +195,7 @@ export default function Dashboard() {
                                 )}
                             </div>
                             <h2 style={{ fontSize: '1.15rem', fontWeight: '600', marginBottom: '0.25rem', color: theme.text }}>{user?.fullName || user?.username}</h2>
-                            <p style={{ color: theme.textFaint, fontSize: '0.85rem' }}>Individual Member</p>
+                            <p style={{ color: theme.textFaint, fontSize: '0.85rem' }}>{user?.userType === 'community_admin' ? 'Community Admin' : user?.userType === 'system_admin' ? 'System Admin' : 'Individual Member'}</p>
                             <div style={{ marginTop: '1rem', width: '100%' }}>
                                 <Link to="/profile" style={{ display: 'block', width: '100%', background: theme.accent, color: '#fff', padding: '0.6rem', borderRadius: '6px', textDecoration: 'none', fontWeight: '600', fontSize: '0.9rem', textAlign: 'center' }}>
                                     Edit Profile
@@ -237,8 +243,12 @@ export default function Dashboard() {
                                         <Link key={c._id} to={`/communities/${c._id}`} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem', borderRadius: '6px', textDecoration: 'none', transition: 'background 0.15s' }}
                                             onMouseEnter={e => e.currentTarget.style.background = theme.bgCardHover}
                                             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                                            <div style={{ width: '32px', height: '32px', background: theme.accentLight, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                                <i className="fas fa-users" style={{ fontSize: '0.7rem', color: theme.accentText }}></i>
+                                            <div style={{ width: '32px', height: '32px', background: theme.accentLight, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
+                                                {c.image ? (
+                                                    <img src={c.image.startsWith('http') ? c.image : getMediaUrl(c.image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                ) : (
+                                                    <i className="fas fa-users" style={{ fontSize: '0.7rem', color: theme.accentText }}></i>
+                                                )}
                                             </div>
                                             <div>
                                                 <div style={{ fontWeight: '500', fontSize: '0.9rem', color: theme.text }}>{c.name}</div>

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Project = require('../models/Project');
+const JoinRequest = require('../models/JoinRequest');
 const { protect } = require('../middleware/auth');
 const { upload, projectUpload, projectFileUpload } = require('../middleware/upload');
 
@@ -120,17 +121,105 @@ router.delete('/:id', protect, async (req, res) => {
     } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// POST join project
+// POST request to join project (with reason)
 router.post('/:id/join', protect, async (req, res) => {
+    try {
+        const { reason } = req.body;
+        if (!reason || !reason.trim()) return res.status(400).json({ message: 'Please provide a reason for joining' });
+
+        const project = await Project.findById(req.params.id);
+        if (!project) return res.status(404).json({ message: 'Project not found' });
+
+        // Check if already a member
+        const alreadyMember = project.members.find(m => m.userId.toString() === req.user._id.toString());
+        if (alreadyMember) return res.status(400).json({ message: 'Already a member' });
+
+        // Check if already has a pending request
+        const existingRequest = await JoinRequest.findOne({
+            type: 'project', targetId: req.params.id, userId: req.user._id, status: 'pending'
+        });
+        if (existingRequest) return res.status(400).json({ message: 'You already have a pending request' });
+
+        await JoinRequest.create({
+            type: 'project', targetId: req.params.id, userId: req.user._id, reason: reason.trim()
+        });
+        res.status(201).json({ message: 'Join request sent successfully' });
+    } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// GET check if current user has a pending request for this project
+router.get('/:id/my-request', protect, async (req, res) => {
+    try {
+        const request = await JoinRequest.findOne({
+            type: 'project', targetId: req.params.id, userId: req.user._id
+        }).sort({ createdAt: -1 });
+        res.json({ request: request || null });
+    } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// GET pending join requests for a project (creator only)
+router.get('/:id/join-requests', protect, async (req, res) => {
     try {
         const project = await Project.findById(req.params.id);
         if (!project) return res.status(404).json({ message: 'Project not found' });
-        const alreadyMember = project.members.find(m => m.userId.toString() === req.user._id.toString());
-        if (alreadyMember) return res.status(400).json({ message: 'Already a member' });
-        project.members.push({ userId: req.user._id, role: req.body.role || 'member' });
-        project.memberCount = project.members.length;
-        await project.save();
-        res.json({ message: 'Joined project successfully' });
+        if (project.createdBy.toString() !== req.user._id.toString())
+            return res.status(403).json({ message: 'Only the project creator can view requests' });
+
+        const requests = await JoinRequest.find({
+            type: 'project', targetId: req.params.id, status: 'pending'
+        }).populate('userId', 'username fullName profileImage email').sort({ createdAt: -1 });
+        res.json(requests);
+    } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// PUT approve a join request (creator only)
+router.put('/:id/join-requests/:requestId/approve', protect, async (req, res) => {
+    try {
+        const project = await Project.findById(req.params.id);
+        if (!project) return res.status(404).json({ message: 'Project not found' });
+        if (project.createdBy.toString() !== req.user._id.toString())
+            return res.status(403).json({ message: 'Not authorized' });
+
+        const joinReq = await JoinRequest.findById(req.params.requestId);
+        if (!joinReq || joinReq.status !== 'pending')
+            return res.status(404).json({ message: 'Request not found or already processed' });
+
+        // Approve: update request status
+        joinReq.status = 'approved';
+        joinReq.reviewedBy = req.user._id;
+        joinReq.reviewedAt = new Date();
+        await joinReq.save();
+
+        // Add user to project members
+        const alreadyMember = project.members.find(m => m.userId.toString() === joinReq.userId.toString());
+        if (!alreadyMember) {
+            project.members.push({ userId: joinReq.userId, role: 'member' });
+            project.memberCount = project.members.length;
+            await project.save();
+        }
+
+        res.json({ message: 'Request approved' });
+    } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// PUT reject a join request (creator only)
+router.put('/:id/join-requests/:requestId/reject', protect, async (req, res) => {
+    try {
+        const project = await Project.findById(req.params.id);
+        if (!project) return res.status(404).json({ message: 'Project not found' });
+        if (project.createdBy.toString() !== req.user._id.toString())
+            return res.status(403).json({ message: 'Not authorized' });
+
+        const joinReq = await JoinRequest.findById(req.params.requestId);
+        if (!joinReq || joinReq.status !== 'pending')
+            return res.status(404).json({ message: 'Request not found or already processed' });
+
+        joinReq.status = 'rejected';
+        joinReq.reviewedBy = req.user._id;
+        joinReq.reviewedAt = new Date();
+        await joinReq.save();
+
+        res.json({ message: 'Request rejected' });
     } catch (err) { res.status(500).json({ message: err.message }); }
 });
 // POST upload files to a project

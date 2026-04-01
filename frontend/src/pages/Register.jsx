@@ -10,6 +10,8 @@ export default function Register() {
     const [form, setForm] = useState({ username: '', email: '', password: '', confirmPassword: '', fullName: '', userType: 'individual', location: '' });
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [showPass, setShowPass] = useState(false);
+    const [showConfirm, setShowConfirm] = useState(false);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -94,15 +96,27 @@ export default function Register() {
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
                                 <div>
                                     <label style={labelStyle}><i className="fas fa-lock" style={{ color: '#6366f1', marginRight: '0.35rem' }}></i>Password *</label>
-                                    <input type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })}
-                                        placeholder="Min 6 chars" style={inputStyle} required
-                                        onFocus={e => e.target.style.borderColor = '#6366f1'} onBlur={e => e.target.style.borderColor = theme.border} />
+                                    <div style={{ position: 'relative' }}>
+                                        <input type={showPass ? 'text' : 'password'} value={form.password} onChange={e => setForm({ ...form, password: e.target.value })}
+                                            placeholder="Min 6 chars" style={{ ...inputStyle, paddingRight: '2.5rem' }} required
+                                            onFocus={e => e.target.style.borderColor = '#6366f1'} onBlur={e => e.target.style.borderColor = theme.border} />
+                                        <button type="button" onClick={() => setShowPass(!showPass)}
+                                            style={{ position: 'absolute', right: '0.6rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: theme.textFaint, fontSize: '0.85rem', padding: '0.2rem' }}>
+                                            <i className={showPass ? 'fas fa-eye-slash' : 'fas fa-eye'}></i>
+                                        </button>
+                                    </div>
                                 </div>
                                 <div>
                                     <label style={labelStyle}><i className="fas fa-lock" style={{ color: '#6366f1', marginRight: '0.35rem' }}></i>Confirm *</label>
-                                    <input type="password" value={form.confirmPassword} onChange={e => setForm({ ...form, confirmPassword: e.target.value })}
-                                        placeholder="Re-enter" style={inputStyle} required
-                                        onFocus={e => e.target.style.borderColor = '#6366f1'} onBlur={e => e.target.style.borderColor = theme.border} />
+                                    <div style={{ position: 'relative' }}>
+                                        <input type={showConfirm ? 'text' : 'password'} value={form.confirmPassword} onChange={e => setForm({ ...form, confirmPassword: e.target.value })}
+                                            placeholder="Re-enter" style={{ ...inputStyle, paddingRight: '2.5rem' }} required
+                                            onFocus={e => e.target.style.borderColor = '#6366f1'} onBlur={e => e.target.style.borderColor = theme.border} />
+                                        <button type="button" onClick={() => setShowConfirm(!showConfirm)}
+                                            style={{ position: 'absolute', right: '0.6rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: theme.textFaint, fontSize: '0.85rem', padding: '0.2rem' }}>
+                                            <i className={showConfirm ? 'fas fa-eye-slash' : 'fas fa-eye'}></i>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 

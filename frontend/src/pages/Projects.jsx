@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import api from '../api/api';
+import { getMediaUrl } from '../utils/media';
 
 export default function Projects() {
     const { user } = useAuth();
@@ -77,7 +78,7 @@ export default function Projects() {
                                     onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
                                     <div style={{ height: '140px', background: 'linear-gradient(135deg, #312e81, #6366f1)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                                         {p.image ? (
-                                            <img src={`http://localhost:5000${p.image}`} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                            <img src={getMediaUrl(p.image)} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                         ) : (
                                             <i className="fas fa-project-diagram" style={{ fontSize: '3rem', color: 'rgba(255,255,255,0.2)' }}></i>
                                         )}

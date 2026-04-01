@@ -10,6 +10,7 @@ export default function Login() {
     const [form, setForm] = useState({ username: '', password: '' });
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [showPass, setShowPass] = useState(false);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -63,10 +64,16 @@ export default function Login() {
                                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: theme.textSecondary, marginBottom: '0.4rem' }}>
                                     <i className="fas fa-lock" style={{ color: '#6366f1', marginRight: '0.4rem' }}></i>Password
                                 </label>
-                                <input type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })}
-                                    placeholder="Enter your password" style={inputStyle} required
-                                    onFocus={e => e.target.style.borderColor = '#6366f1'}
-                                    onBlur={e => e.target.style.borderColor = theme.border} />
+                                <div style={{ position: 'relative' }}>
+                                    <input type={showPass ? 'text' : 'password'} value={form.password} onChange={e => setForm({ ...form, password: e.target.value })}
+                                        placeholder="Enter your password" style={{ ...inputStyle, paddingRight: '2.75rem' }} required
+                                        onFocus={e => e.target.style.borderColor = '#6366f1'}
+                                        onBlur={e => e.target.style.borderColor = theme.border} />
+                                    <button type="button" onClick={() => setShowPass(!showPass)}
+                                        style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: theme.textFaint, fontSize: '0.95rem', padding: '0.25rem' }}>
+                                        <i className={showPass ? 'fas fa-eye-slash' : 'fas fa-eye'}></i>
+                                    </button>
+                                </div>
                             </div>
 
                             <div style={{ textAlign: 'right', marginBottom: '1.25rem' }}>

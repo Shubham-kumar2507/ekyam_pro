@@ -6,6 +6,7 @@ const path = require('path');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const morgan = require('morgan');
+const compression = require('compression');
 
 dotenv.config();
 
@@ -14,10 +15,27 @@ const app = express();
 // ─── Security Middleware ───
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 
+// ─── CORS (must be before rate limiting so 429 responses include CORS headers) ───
+const corsOrigin = process.env.CORS_ORIGIN || 'http://localhost:5173';
+app.use(cors({
+    origin: corsOrigin.split(',').map(o => o.trim()),
+    credentials: true
+}));
+
+// ─── Gzip Compression ───
+app.use(compression({
+    level: 6,
+    threshold: 1024, // only compress responses > 1KB
+    filter: (req, res) => {
+        if (req.headers['x-no-compression']) return false;
+        return compression.filter(req, res);
+    }
+}));
+
 // ─── Rate Limiting ───
 const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 200, // limit each IP to 200 requests per windowMs
+    max: process.env.NODE_ENV === 'production' ? 200 : 1000,
     standardHeaders: true,
     legacyHeaders: false,
     message: { message: 'Too many requests, please try again later.' }
@@ -37,19 +55,16 @@ if (process.env.NODE_ENV !== 'test') {
     app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 }
 
-// ─── CORS ───
-const corsOrigin = process.env.CORS_ORIGIN || 'http://localhost:5173';
-app.use(cors({
-    origin: corsOrigin.split(',').map(o => o.trim()),
-    credentials: true
-}));
-
 // ─── Body Parsing ───
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// ─── Static files for uploads ───
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// ─── Static files for uploads (with browser caching) ───
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+    maxAge: process.env.NODE_ENV === 'production' ? '7d' : '1h',
+    etag: true,
+    lastModified: true
+}));
 
 // ─── API Routes ───
 app.use('/api/auth', require('./routes/authRoutes'));
@@ -63,6 +78,7 @@ app.use('/api/chat', require('./routes/communityChat'));
 app.use('/api/events', require('./routes/communityEvents'));
 app.use('/api/posts', require('./routes/posts'));
 app.use('/api/connections', require('./routes/connections'));
+app.use('/api/admin', require('./routes/admin'));
 
 // ─── Health Check ───
 app.get('/api', (req, res) => res.json({ message: 'Ekyam API is running', env: process.env.NODE_ENV }));
@@ -91,14 +107,40 @@ app.use((err, req, res, _next) => {
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/ekyam_db';
 
+let server;
+
 mongoose.connect(MONGO_URI)
     .then(() => {
         console.log('✅ MongoDB connected');
-        app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+        server = app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
     })
     .catch((err) => {
         console.error('❌ MongoDB connection error:', err.message);
         process.exit(1);
     });
+
+// ─── Graceful Shutdown ───
+const shutdown = async (signal) => {
+    console.log(`\n⏳ ${signal} received. Shutting down gracefully...`);
+    if (server) {
+        server.close(() => {
+            console.log('🔌 HTTP server closed');
+            mongoose.connection.close().then(() => {
+                console.log('🗄️ MongoDB connection closed');
+                process.exit(0);
+            });
+        });
+    } else {
+        process.exit(0);
+    }
+    // Force shutdown after 10s
+    setTimeout(() => {
+        console.error('⚠️ Forced shutdown after timeout');
+        process.exit(1);
+    }, 10000);
+};
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
 
 module.exports = app;

@@ -493,3 +493,79 @@ a {
 [data-theme="dark"] [style*="background: #fffbeb"] {
   background-color: #451a03 !important;
 }
+
+/* === Responsive Dashboard Grid === */
+@media (max-width: 768px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* === Responsive Testimonials === */
+@media (max-width: 900px) {
+  .stagger-children[style*="repeat(3"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* === Glassmorphism Utility === */
+.glass {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+[data-theme="dark"] .glass {
+  background: rgba(30, 41, 59, 0.6);
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+/* === Gradient Text Utility === */
+.gradient-text {
+  background: linear-gradient(135deg, #4f46e5, #7c3aed, #a855f7);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* === Page Transition === */
+.page-enter {
+  animation: pageIn 0.35s ease-out;
+}
+
+@keyframes pageIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* === Improved Selection Colors === */
+::selection {
+  background: rgba(99, 102, 241, 0.25);
+  color: inherit;
+}
+
+/* === Image zoom on hover === */
+.img-zoom {
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.img-zoom:hover {
+  transform: scale(1.03);
+}
+
+/* === Badge pulse for notifications === */
+@keyframes badgePulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+
+.badge-pulse {
+  animation: badgePulse 2s ease-in-out infinite;
+}

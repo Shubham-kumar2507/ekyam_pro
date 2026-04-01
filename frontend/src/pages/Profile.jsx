@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import api from '../api/api';
+import { getMediaUrl } from '../utils/media';
 
 export default function Profile() {
     const { user, updateUser } = useAuth();
@@ -43,9 +44,7 @@ export default function Profile() {
         setUploadingPic(false);
     };
 
-    const profileImageUrl = user?.profileImage
-        ? (user.profileImage.startsWith('http') ? user.profileImage : `http://localhost:5000${user.profileImage}`)
-        : null;
+    const profileImageUrl = getMediaUrl(user?.profileImage);
 
     const inputStyle = { width: '100%', padding: '0.7rem 1rem', border: `1px solid ${theme.border}`, borderRadius: '8px', fontSize: '0.9rem', outline: 'none', marginTop: '0.25rem', background: theme.bgInput, color: theme.text };
     const labelStyle = { display: 'block', fontSize: '0.85rem', fontWeight: '500', color: theme.textSecondary };

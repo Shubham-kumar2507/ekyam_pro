@@ -3,8 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import api from '../api/api';
-
-const BASE = 'http://localhost:5000';
+import { getMediaUrl } from '../utils/media';
 
 export default function ResourceDetails() {
     const { id } = useParams();
@@ -23,7 +22,7 @@ export default function ResourceDetails() {
         try {
             await api.post(`/resources/${id}/download`);
             setResource(prev => ({ ...prev, downloadCount: (prev.downloadCount || 0) + 1 }));
-            const fileUrl = resource.filePath ? `${BASE}${resource.filePath}` : resource.url;
+            const fileUrl = resource.filePath ? getMediaUrl(resource.filePath) : resource.url;
             if (fileUrl) window.open(fileUrl, '_blank');
             else alert('No file or URL attached to this resource.');
         } catch (err) { /* */ }
@@ -91,7 +90,7 @@ export default function ResourceDetails() {
                                         <div style={{ fontWeight: '600', fontSize: '0.85rem', color: theme.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.fileName}</div>
                                         <div style={{ fontSize: '0.72rem', color: theme.textFaint }}>{f.fileSize ? `${(f.fileSize / 1024).toFixed(1)} KB` : ''}</div>
                                     </div>
-                                    <a href={`${BASE}${f.filePath}`} download={f.fileName} style={{ color: '#0891b2', fontSize: '0.8rem', fontWeight: '600', textDecoration: 'none', flexShrink: 0 }}>⬇ Download</a>
+                                    <a href={getMediaUrl(f.filePath)} download={f.fileName} style={{ color: '#0891b2', fontSize: '0.8rem', fontWeight: '600', textDecoration: 'none', flexShrink: 0 }}>⬇ Download</a>
                                     {isOwner && (
                                         <button onClick={() => handleDeleteFile(idx)} style={{ background: 'none', border: 'none', color: theme.error, cursor: 'pointer', fontSize: '0.85rem', flexShrink: 0 }}>🗑</button>
                                     )}

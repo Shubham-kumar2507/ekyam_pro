@@ -3,8 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import api from '../api/api';
-
-const BASE = 'http://localhost:5000';
+import { getMediaUrl } from '../utils/media';
 
 export default function UserCard({ userInfo, initialStatus, onStatusChange }) {
     const { user } = useAuth();
@@ -72,7 +71,7 @@ export default function UserCard({ userInfo, initialStatus, onStatusChange }) {
             <Link to={`/users/${userInfo._id}`} style={{ textDecoration: 'none' }}>
                 <div style={avatarStyle}>
                     {userInfo.profileImage
-                        ? <img src={`${BASE}${userInfo.profileImage}`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ? <img src={getMediaUrl(userInfo.profileImage)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         : userInfo.fullName?.[0] || '?'}
                 </div>
             </Link>

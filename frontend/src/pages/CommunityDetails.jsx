@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/api';
+import { getMediaUrl } from '../utils/media';
 
 export default function CommunityDetails() {
     const { id } = useParams();
@@ -13,6 +14,13 @@ export default function CommunityDetails() {
     const [loading, setLoading] = useState(true);
     const [isMember, setIsMember] = useState(false);
     const [isAdmin, setIsAdmin] = useState(false);
+
+    // Join request state
+    const [showJoinModal, setShowJoinModal] = useState(false);
+    const [joinReason, setJoinReason] = useState('');
+    const [joinSubmitting, setJoinSubmitting] = useState(false);
+    const [myRequest, setMyRequest] = useState(null);
+    const [joinRequests, setJoinRequests] = useState([]);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -38,7 +46,49 @@ export default function CommunityDetails() {
         fetchData();
     }, [id]);
 
-    const handleJoin = async () => { try { await api.post(`/communities/${id}/join`); setIsMember(true); } catch { } };
+    // Fetch user's own join request status
+    useEffect(() => {
+        if (user) {
+            api.get(`/communities/${id}/my-request`).then(r => setMyRequest(r.data.request)).catch(() => { });
+        }
+    }, [id, user]);
+
+    // Fetch pending join requests if admin
+    useEffect(() => {
+        if (user && isAdmin) {
+            api.get(`/communities/${id}/join-requests`).then(r => setJoinRequests(r.data)).catch(() => { });
+        }
+    }, [id, user, isAdmin]);
+
+    const handleJoinRequest = async () => {
+        if (!joinReason.trim()) return;
+        setJoinSubmitting(true);
+        try {
+            await api.post(`/communities/${id}/join`, { reason: joinReason.trim() });
+            setMyRequest({ status: 'pending', reason: joinReason.trim() });
+            setShowJoinModal(false);
+            setJoinReason('');
+        } catch (err) { alert(err.response?.data?.message || 'Error'); }
+        setJoinSubmitting(false);
+    };
+
+    const handleApproveRequest = async (requestId) => {
+        try {
+            await api.put(`/communities/${id}/join-requests/${requestId}/approve`);
+            setJoinRequests(prev => prev.filter(r => r._id !== requestId));
+            // Refresh community to update members
+            const { data } = await api.get(`/communities/${id}`);
+            setCommunity(data);
+        } catch (err) { alert(err.response?.data?.message || 'Error'); }
+    };
+
+    const handleRejectRequest = async (requestId) => {
+        try {
+            await api.put(`/communities/${id}/join-requests/${requestId}/reject`);
+            setJoinRequests(prev => prev.filter(r => r._id !== requestId));
+        } catch (err) { alert(err.response?.data?.message || 'Error'); }
+    };
+
     const handleLeave = async () => { if (!confirm('Leave this community?')) return; try { await api.post(`/communities/${id}/leave`); setIsMember(false); } catch { } };
 
     if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}><i className="fas fa-spinner fa-spin" style={{ fontSize: '2rem', color: '#3c6e71' }}></i></div>;
@@ -55,7 +105,7 @@ export default function CommunityDetails() {
                 <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '2rem 1rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '1.5rem' }}>
                         <div style={{ width: '96px', height: '96px', background: '#eef2ff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #d4c9b0', flexShrink: 0 }}>
-                            {community.image ? <img src={community.image.startsWith('http') ? community.image : `http://localhost:5000${community.image}`} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                            {community.image ? <img src={community.image.startsWith('http') ? community.image : getMediaUrl(community.image)} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
                                 : <i className="fas fa-users" style={{ fontSize: '2.5rem', color: '#6366f1' }}></i>}
                         </div>
                         <div style={{ flex: 1 }}>
@@ -75,9 +125,19 @@ export default function CommunityDetails() {
                         </div>
                         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                             {user && !isMember && !isAdmin && (
-                                <button onClick={handleJoin} style={{ background: '#3c6e71', color: '#fff', padding: '0.6rem 1.5rem', border: 'none', borderRadius: '4px', fontWeight: '500', cursor: 'pointer' }}>
-                                    <i className="fas fa-plus" style={{ marginRight: '0.4rem' }}></i>Join Community
-                                </button>
+                                myRequest?.status === 'pending' ? (
+                                    <div style={{ background: '#fef3c7', color: '#92400e', padding: '0.6rem 1.5rem', border: '1px solid #fde68a', borderRadius: '4px', fontWeight: '600', fontSize: '0.9rem' }}>
+                                        <i className="fas fa-clock" style={{ marginRight: '0.4rem' }}></i>Request Pending
+                                    </div>
+                                ) : myRequest?.status === 'rejected' ? (
+                                    <div style={{ background: '#fef2f2', color: '#dc2626', padding: '0.6rem 1.5rem', border: '1px solid #fecaca', borderRadius: '4px', fontWeight: '600', fontSize: '0.9rem' }}>
+                                        <i className="fas fa-times-circle" style={{ marginRight: '0.4rem' }}></i>Request Rejected
+                                    </div>
+                                ) : (
+                                    <button onClick={() => setShowJoinModal(true)} style={{ background: '#3c6e71', color: '#fff', padding: '0.6rem 1.5rem', border: 'none', borderRadius: '4px', fontWeight: '500', cursor: 'pointer' }}>
+                                        <i className="fas fa-paper-plane" style={{ marginRight: '0.4rem' }}></i>Request to Join
+                                    </button>
+                                )
                             )}
                             {user && (isMember || isAdmin) && (
                                 <Link to={`/communities/${id}/chat`} style={{ background: '#4f46e5', color: '#fff', padding: '0.6rem 1.25rem', borderRadius: '4px', textDecoration: 'none', fontWeight: '500' }}>
@@ -110,6 +170,50 @@ export default function CommunityDetails() {
                             <p style={{ color: '#4b5563', lineHeight: '1.7' }}>{community.description}</p>
                         </div>
 
+                        {/* Pending Join Requests (admin only) */}
+                        {isAdmin && joinRequests.length > 0 && (
+                            <div style={{ background: '#fff', borderRadius: '4px', border: '2px solid #f59e0b', padding: '1.5rem', marginBottom: '2rem', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+                                <h2 style={{ fontSize: '1.3rem', fontWeight: '700', fontFamily: "'Playfair Display', Georgia, serif", marginBottom: '1rem' }}>
+                                    <i className="fas fa-user-clock" style={{ color: '#f59e0b', marginRight: '0.5rem' }}></i>
+                                    Pending Join Requests
+                                    <span style={{ background: '#fef3c7', color: '#92400e', padding: '0.15rem 0.5rem', borderRadius: '10px', fontSize: '0.75rem', fontWeight: '700', marginLeft: '0.5rem' }}>{joinRequests.length}</span>
+                                </h2>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                    {joinRequests.map(req => (
+                                        <div key={req._id} style={{ background: '#f9fafb', borderRadius: '8px', padding: '1rem', border: '1px solid #e5e7eb' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
+                                                {req.userId?.profileImage ? (
+                                                    <img src={req.userId.profileImage.startsWith('http') ? req.userId.profileImage : getMediaUrl(req.userId.profileImage)} alt="" style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' }} />
+                                                ) : (
+                                                    <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#eef2ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                        <i className="fas fa-user" style={{ color: '#4f46e5', fontSize: '0.8rem' }}></i>
+                                                    </div>
+                                                )}
+                                                <div>
+                                                    <div style={{ fontWeight: '600', color: '#1f2937' }}>{req.userId?.fullName || req.userId?.username}</div>
+                                                    <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>{req.userId?.email}</div>
+                                                </div>
+                                            </div>
+                                            <div style={{ background: '#fff', borderRadius: '6px', padding: '0.65rem 0.85rem', marginBottom: '0.75rem', fontSize: '0.88rem', color: '#4b5563', lineHeight: '1.5', borderLeft: '3px solid #4f46e5' }}>
+                                                <strong style={{ color: '#6b7280', fontSize: '0.75rem', display: 'block', marginBottom: '0.25rem' }}>Reason for joining:</strong>
+                                                {req.reason}
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                <button onClick={() => handleApproveRequest(req._id)}
+                                                    style={{ flex: 1, padding: '0.5rem', background: '#10b981', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem' }}>
+                                                    <i className="fas fa-check" style={{ marginRight: '0.3rem' }}></i>Approve
+                                                </button>
+                                                <button onClick={() => handleRejectRequest(req._id)}
+                                                    style={{ flex: 1, padding: '0.5rem', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem' }}>
+                                                    <i className="fas fa-times" style={{ marginRight: '0.3rem' }}></i>Reject
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                         {/* Projects */}
                         <div style={{ background: '#fff', borderRadius: '4px', border: '1px solid #d4c9b0', padding: '1.5rem', marginBottom: '2rem', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
@@ -130,7 +234,7 @@ export default function CommunityDetails() {
                                             onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'}
                                             onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}>
                                             <div style={{ height: '140px', background: '#eef2ff', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-                                                {p.image ? <img src={p.image.startsWith('http') ? p.image : `http://localhost:5000${p.image}`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                {p.image ? <img src={p.image.startsWith('http') ? p.image : getMediaUrl(p.image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                                     : <i className="fas fa-project-diagram" style={{ fontSize: '2.5rem', color: '#c7d2fe' }}></i>}
                                                 <span style={{ position: 'absolute', top: '0.75rem', right: '0.75rem', background: statusBg[p.status] || '#f3f4f6', color: statusColor[p.status] || '#6b7280', padding: '0.15rem 0.5rem', borderRadius: '4px', fontSize: '0.7rem', fontWeight: '600' }}>
                                                     {(p.status || 'planning').replace('_', ' ')}
@@ -212,7 +316,7 @@ export default function CommunityDetails() {
                                             onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
                                             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                                             <div style={{ width: '32px', height: '32px', background: '#e5e7eb', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                                {m.userId?.profileImage ? <img src={m.userId.profileImage.startsWith('http') ? m.userId.profileImage : `http://localhost:5000${m.userId.profileImage}`} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                                                {m.userId?.profileImage ? <img src={m.userId.profileImage.startsWith('http') ? m.userId.profileImage : getMediaUrl(m.userId.profileImage)} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
                                                     : <i className="fas fa-user" style={{ fontSize: '0.7rem', color: '#6b7280' }}></i>}
                                             </div>
                                             <div>
@@ -255,6 +359,42 @@ export default function CommunityDetails() {
                     </div>
                 </div>
             </div>
+            {/* Join Request Modal */}
+            {showJoinModal && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}
+                    onClick={() => setShowJoinModal(false)}>
+                    <div style={{ background: '#fff', borderRadius: '16px', padding: '2rem', maxWidth: '480px', width: '90%', boxShadow: '0 8px 30px rgba(0,0,0,0.2)', border: '1px solid #e5e7eb' }}
+                        onClick={e => e.stopPropagation()}>
+                        <h2 style={{ fontWeight: '700', color: '#1f2937', marginBottom: '0.5rem', fontSize: '1.25rem' }}>
+                            <i className="fas fa-paper-plane" style={{ color: '#4f46e5', marginRight: '0.5rem' }}></i>Request to Join
+                        </h2>
+                        <p style={{ color: '#6b7280', marginBottom: '1.25rem', fontSize: '0.9rem' }}>
+                            Tell the community admin why you'd like to join <strong>"{community.name}"</strong>
+                        </p>
+                        <textarea
+                            value={joinReason}
+                            onChange={e => setJoinReason(e.target.value)}
+                            placeholder="I'd like to join because..."
+                            rows={4}
+                            style={{
+                                width: '100%', padding: '0.85rem', borderRadius: '10px', border: '1px solid #d1d5db',
+                                background: '#f9fafb', color: '#1f2937', fontSize: '0.9rem', resize: 'vertical',
+                                outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box',
+                            }}
+                        />
+                        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem' }}>
+                            <button onClick={() => setShowJoinModal(false)}
+                                style={{ flex: 1, padding: '0.7rem', background: '#e5e7eb', color: '#374151', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '600' }}>
+                                Cancel
+                            </button>
+                            <button onClick={handleJoinRequest} disabled={!joinReason.trim() || joinSubmitting}
+                                style={{ flex: 1, padding: '0.7rem', background: '#3c6e71', color: '#fff', border: 'none', borderRadius: '10px', cursor: joinSubmitting ? 'wait' : 'pointer', fontWeight: '600', opacity: (!joinReason.trim() || joinSubmitting) ? 0.6 : 1 }}>
+                                {joinSubmitting ? 'Sending...' : 'Send Request'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

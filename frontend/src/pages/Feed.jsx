@@ -4,8 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import api from '../api/api';
 import PostCard from '../components/PostCard';
-
-const BASE = 'http://localhost:5000';
+import { getMediaUrl } from '../utils/media';
 
 export default function Feed() {
     const { user } = useAuth();
@@ -116,7 +115,7 @@ export default function Feed() {
                             <div onClick={() => setShowCreateForm(true)} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
                                 <div style={avatarStyle}>
                                     {user.profileImage
-                                        ? <img src={`${BASE}${user.profileImage}`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        ? <img src={getMediaUrl(user.profileImage)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                         : user.fullName?.[0] || '?'}
                                 </div>
                                 <div style={{ flex: 1, padding: '0.65rem 1rem', background: theme.bgMuted, borderRadius: '25px', color: theme.textFaint, fontSize: '0.92rem' }}>

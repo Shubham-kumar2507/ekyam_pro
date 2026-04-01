@@ -2,8 +2,10 @@ const express = require('express');
 const router = express.Router();
 const Community = require('../models/Community');
 const CommunityMember = require('../models/CommunityMember');
+const JoinRequest = require('../models/JoinRequest');
 const User = require('../models/User');
 const { protect } = require('../middleware/auth');
+const { upload, communityUpload } = require('../middleware/upload');
 
 // Helper: escape special regex characters to prevent ReDoS
 function escapeRegex(str) {
@@ -30,6 +32,25 @@ router.get('/user/joined', protect, async (req, res) => {
     } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
+// GET communities for current user (member + admin) — used by Dashboard
+router.get('/user/me', protect, async (req, res) => {
+    try {
+        // Get communities the user is a member of
+        const memberships = await CommunityMember.find({ userId: req.user._id }).populate('communityId');
+        const memberCommunities = memberships.map(m => m.communityId).filter(Boolean);
+        // Also get communities where user is admin (in case CommunityMember record is missing for older data)
+        const adminCommunities = await Community.find({ adminId: req.user._id });
+        // Merge and deduplicate by _id
+        const seen = new Set();
+        const all = [];
+        [...memberCommunities, ...adminCommunities].forEach(c => {
+            const id = c._id.toString();
+            if (!seen.has(id)) { seen.add(id); all.push(c); }
+        });
+        res.json(all);
+    } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
 // GET single community
 router.get('/:id', async (req, res) => {
     try {
@@ -40,23 +61,35 @@ router.get('/:id', async (req, res) => {
     } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// POST create community
-router.post('/', protect, async (req, res) => {
+// POST create community (with optional logo upload)
+router.post('/', protect, communityUpload, upload.single('image'), async (req, res) => {
     try {
-        const { name, description, location, category, image } = req.body;
-        const community = await Community.create({ name, description, location, category, image, adminId: req.user._id });
+        const { name, description, location, category, coordinates } = req.body;
+        const image = req.file ? `/uploads/communities/${req.file.filename}` : (req.body.image || '');
+        const parsedCoords = coordinates ? (typeof coordinates === 'string' ? JSON.parse(coordinates) : coordinates) : {};
+        const community = await Community.create({ name, description, location, category, image, adminId: req.user._id, coordinates: parsedCoords });
+        // Add creator as a CommunityMember with admin role
+        await CommunityMember.create({ communityId: community._id, userId: req.user._id, role: 'admin' });
         await User.findByIdAndUpdate(req.user._id, { userType: 'community_admin', communityId: community._id });
         res.status(201).json(community);
     } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// PUT update community
-router.put('/:id', protect, async (req, res) => {
+// PUT update community (with optional logo upload)
+router.put('/:id', protect, communityUpload, upload.single('image'), async (req, res) => {
     try {
         const community = await Community.findById(req.params.id);
         if (!community) return res.status(404).json({ message: 'Community not found' });
         if (community.adminId.toString() !== req.user._id.toString()) return res.status(403).json({ message: 'Not authorized' });
-        const updated = await Community.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        const updateData = { ...req.body };
+        // Parse coordinates if sent as string
+        if (updateData.coordinates && typeof updateData.coordinates === 'string') {
+            updateData.coordinates = JSON.parse(updateData.coordinates);
+        }
+        if (req.file) {
+            updateData.image = `/uploads/communities/${req.file.filename}`;
+        }
+        const updated = await Community.findByIdAndUpdate(req.params.id, updateData, { new: true });
         res.json(updated);
     } catch (err) { res.status(500).json({ message: err.message }); }
 });
@@ -73,15 +106,109 @@ router.delete('/:id', protect, async (req, res) => {
     } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// POST join community
+// POST request to join community (with reason)
 router.post('/:id/join', protect, async (req, res) => {
     try {
+        const { reason } = req.body;
+        if (!reason || !reason.trim()) return res.status(400).json({ message: 'Please provide a reason for joining' });
+
+        const community = await Community.findById(req.params.id);
+        if (!community) return res.status(404).json({ message: 'Community not found' });
+
+        // Check if already a member
         const existing = await CommunityMember.findOne({ communityId: req.params.id, userId: req.user._id });
         if (existing) return res.status(400).json({ message: 'Already a member' });
-        await CommunityMember.create({ communityId: req.params.id, userId: req.user._id });
-        const count = await CommunityMember.countDocuments({ communityId: req.params.id });
-        await Community.findByIdAndUpdate(req.params.id, { memberCount: count + 1 });
-        res.json({ message: 'Joined successfully' });
+
+        // Check if admin
+        if (community.adminId.toString() === req.user._id.toString())
+            return res.status(400).json({ message: 'You are the admin of this community' });
+
+        // Check if already has a pending request
+        const existingRequest = await JoinRequest.findOne({
+            type: 'community', targetId: req.params.id, userId: req.user._id, status: 'pending'
+        });
+        if (existingRequest) return res.status(400).json({ message: 'You already have a pending request' });
+
+        await JoinRequest.create({
+            type: 'community', targetId: req.params.id, userId: req.user._id, reason: reason.trim()
+        });
+        res.status(201).json({ message: 'Join request sent successfully' });
+    } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// GET check if current user has a request for this community
+router.get('/:id/my-request', protect, async (req, res) => {
+    try {
+        const request = await JoinRequest.findOne({
+            type: 'community', targetId: req.params.id, userId: req.user._id
+        }).sort({ createdAt: -1 });
+        res.json({ request: request || null });
+    } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// GET pending join requests for a community (admin only)
+router.get('/:id/join-requests', protect, async (req, res) => {
+    try {
+        const community = await Community.findById(req.params.id);
+        if (!community) return res.status(404).json({ message: 'Community not found' });
+        if (community.adminId.toString() !== req.user._id.toString())
+            return res.status(403).json({ message: 'Only the admin can view requests' });
+
+        const requests = await JoinRequest.find({
+            type: 'community', targetId: req.params.id, status: 'pending'
+        }).populate('userId', 'username fullName profileImage email').sort({ createdAt: -1 });
+        res.json(requests);
+    } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// PUT approve a join request (admin only)
+router.put('/:id/join-requests/:requestId/approve', protect, async (req, res) => {
+    try {
+        const community = await Community.findById(req.params.id);
+        if (!community) return res.status(404).json({ message: 'Community not found' });
+        if (community.adminId.toString() !== req.user._id.toString())
+            return res.status(403).json({ message: 'Not authorized' });
+
+        const joinReq = await JoinRequest.findById(req.params.requestId);
+        if (!joinReq || joinReq.status !== 'pending')
+            return res.status(404).json({ message: 'Request not found or already processed' });
+
+        // Approve: update request status
+        joinReq.status = 'approved';
+        joinReq.reviewedBy = req.user._id;
+        joinReq.reviewedAt = new Date();
+        await joinReq.save();
+
+        // Add user as community member
+        const existing = await CommunityMember.findOne({ communityId: req.params.id, userId: joinReq.userId });
+        if (!existing) {
+            await CommunityMember.create({ communityId: req.params.id, userId: joinReq.userId });
+            const count = await CommunityMember.countDocuments({ communityId: req.params.id });
+            await Community.findByIdAndUpdate(req.params.id, { memberCount: count + 1 });
+        }
+
+        res.json({ message: 'Request approved' });
+    } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// PUT reject a join request (admin only)
+router.put('/:id/join-requests/:requestId/reject', protect, async (req, res) => {
+    try {
+        const community = await Community.findById(req.params.id);
+        if (!community) return res.status(404).json({ message: 'Community not found' });
+        if (community.adminId.toString() !== req.user._id.toString())
+            return res.status(403).json({ message: 'Not authorized' });
+
+        const joinReq = await JoinRequest.findById(req.params.requestId);
+        if (!joinReq || joinReq.status !== 'pending')
+            return res.status(404).json({ message: 'Request not found or already processed' });
+
+        joinReq.status = 'rejected';
+        joinReq.reviewedBy = req.user._id;
+        joinReq.reviewedAt = new Date();
+        await joinReq.save();
+
+        res.json({ message: 'Request rejected' });
     } catch (err) { res.status(500).json({ message: err.message }); }
 });
 

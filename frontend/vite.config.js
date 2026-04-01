@@ -12,6 +12,7 @@ export default defineConfig({
           // Split vendor dependencies into separate cached chunks
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
           'vendor-axios': ['axios'],
+          'vendor-leaflet': ['leaflet', 'react-leaflet'],
         }
       }
     }

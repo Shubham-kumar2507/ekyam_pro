@@ -11,23 +11,28 @@ const register = async (req, res) => {
     try {
         const { username, email, password, fullName, userType, location } = req.body;
 
-        if (!username || !email || !password || !fullName) {
+        // Sanitize inputs
+        const cleanUsername = (username || '').trim();
+        const cleanEmail = (email || '').trim();
+        const cleanFullName = (fullName || '').trim();
+
+        if (!cleanUsername || !cleanEmail || !password || !cleanFullName) {
             return res.status(400).json({ message: 'Please provide all required fields: username, email, password, fullName' });
         }
         if (password.length < 6) {
             return res.status(400).json({ message: 'Password must be at least 6 characters' });
         }
 
-        const exists = await User.findOne({ $or: [{ email: email.toLowerCase() }, { username }] });
+        const exists = await User.findOne({ $or: [{ email: cleanEmail.toLowerCase() }, { username: cleanUsername }] });
         if (exists) return res.status(400).json({ message: 'User already exists with that email or username' });
 
         const user = await User.create({
-            username,
-            email: email.toLowerCase(),
+            username: cleanUsername,
+            email: cleanEmail.toLowerCase(),
             password,
-            fullName,
+            fullName: cleanFullName,
             userType: userType || 'individual',
-            location: location || ''
+            location: (location || '').trim()
         });
 
         return res.status(201).json({
@@ -54,11 +59,12 @@ const login = async (req, res) => {
     try {
         const { username, password } = req.body;
 
-        if (!username || !password) {
+        const cleanUsername = (username || '').trim();
+        if (!cleanUsername || !password) {
             return res.status(400).json({ message: 'Please provide username/email and password' });
         }
 
-        const user = await User.findOne({ $or: [{ email: username.toLowerCase() }, { username }] });
+        const user = await User.findOne({ $or: [{ email: cleanUsername.toLowerCase() }, { username: cleanUsername }] });
         if (user && (await user.matchPassword(password))) {
             return res.json({
                 _id: user._id,

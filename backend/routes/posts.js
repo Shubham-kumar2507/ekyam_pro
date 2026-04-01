@@ -96,6 +96,31 @@ router.post('/', protect, postUpload, upload.array('media', 5), async (req, res)
             return res.status(400).json({ message: 'Post must have text content or media' });
         }
 
+        // If posting to a project, check membership
+        if (project) {
+            const Project = require('../models/Project');
+            const proj = await Project.findById(project);
+            if (!proj) return res.status(404).json({ message: 'Project not found' });
+            const isCreator = proj.createdBy.toString() === req.user._id.toString();
+            const isMember = proj.members.some(m => m.userId.toString() === req.user._id.toString());
+            if (!isCreator && !isMember) {
+                return res.status(403).json({ message: 'Only project members or the owner can post updates' });
+            }
+        }
+
+        // If posting to a community, check membership
+        if (community) {
+            const Community = require('../models/Community');
+            const CommunityMember = require('../models/CommunityMember');
+            const comm = await Community.findById(community);
+            if (!comm) return res.status(404).json({ message: 'Community not found' });
+            const isAdmin = comm.adminId.toString() === req.user._id.toString();
+            const membership = await CommunityMember.findOne({ communityId: community, userId: req.user._id });
+            if (!isAdmin && !membership) {
+                return res.status(403).json({ message: 'Only community members or the admin can post updates' });
+            }
+        }
+
         const media = [];
         if (req.files && req.files.length > 0) {
             req.files.forEach(file => {

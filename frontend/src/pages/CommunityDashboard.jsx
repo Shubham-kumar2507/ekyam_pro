@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/api';
+import { getMediaUrl } from '../utils/media';
 
 export default function CommunityDashboard() {
     const { id } = useParams();
@@ -17,6 +18,13 @@ export default function CommunityDashboard() {
     const [showEventModal, setShowEventModal] = useState(false);
     const [eventForm, setEventForm] = useState({ title: '', description: '', startDate: '', endDate: '', location: '', eventType: 'meeting' });
     const [calMonth, setCalMonth] = useState(new Date());
+
+    // Edit community modal state
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [editForm, setEditForm] = useState({ name: '', description: '', location: '', category: '' });
+    const [editImageFile, setEditImageFile] = useState(null);
+    const [editImagePreview, setEditImagePreview] = useState(null);
+    const [editSaving, setEditSaving] = useState(false);
 
     useEffect(() => {
         const fetchAll = async () => {
@@ -64,7 +72,49 @@ export default function CommunityDashboard() {
         } catch { }
     };
 
-    const imgUrl = (img) => img ? (img.startsWith('http') ? img : `http://localhost:5000${img}`) : null;
+    const imgUrl = (img) => getMediaUrl(img);
+
+    // Edit community handlers
+    const openEditModal = () => {
+        setEditForm({
+            name: community.name || '',
+            description: community.description || '',
+            location: community.location || '',
+            category: community.category || '',
+        });
+        setEditImagePreview(community.image ? (community.image.startsWith('http') ? community.image : getMediaUrl(community.image)) : null);
+        setEditImageFile(null);
+        setShowEditModal(true);
+    };
+
+    const handleEditImageChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setEditImageFile(file);
+            const reader = new FileReader();
+            reader.onloadend = () => setEditImagePreview(reader.result);
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleEditSave = async (e) => {
+        e.preventDefault();
+        setEditSaving(true);
+        try {
+            const formData = new FormData();
+            formData.append('name', editForm.name);
+            formData.append('description', editForm.description);
+            formData.append('location', editForm.location);
+            formData.append('category', editForm.category);
+            if (editImageFile) formData.append('image', editImageFile);
+            const { data } = await api.put(`/communities/${id}`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            setCommunity(prev => ({ ...prev, ...data }));
+            setShowEditModal(false);
+        } catch (err) { alert(err.response?.data?.message || 'Error updating community'); }
+        setEditSaving(false);
+    };
 
     // Calendar helpers
     const calYear = calMonth.getFullYear();
@@ -126,18 +176,27 @@ export default function CommunityDashboard() {
                             <div style={headerStyle}><h2 style={{ fontSize: '1.25rem', fontWeight: '700', fontFamily: "'Playfair Display', Georgia, serif" }}>Admin Controls</h2></div>
                             <div style={{ padding: '1rem' }}>
                                 {[
-                                    { to: `/communities/${id}`, icon: 'fas fa-edit', label: 'Edit Community Details' },
+                                    { action: 'edit', icon: 'fas fa-edit', label: 'Edit Community Details' },
                                     { to: `/create-project`, icon: 'fas fa-plus-circle', label: 'Create New Project' },
                                     { to: `/create-resource`, icon: 'fas fa-upload', label: 'Upload Resource' },
                                     { to: `/communities/${id}/members`, icon: 'fas fa-users-cog', label: 'Manage Members' },
                                     { to: `/communities/${id}/chat`, icon: 'fas fa-comments', label: 'Community Chat' },
                                 ].map(a => (
-                                    <Link key={a.label} to={a.to} style={sideItem}
-                                        onMouseEnter={e => { e.currentTarget.style.background = '#f0e6d2'; e.currentTarget.style.transform = 'translateX(5px)'; }}
-                                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.transform = 'none'; }}>
-                                        <i className={a.icon} style={{ color: '#374151', width: '20px', textAlign: 'center' }}></i>
-                                        <span>{a.label}</span>
-                                    </Link>
+                                    a.action === 'edit' ? (
+                                        <div key={a.label} style={sideItem} onClick={openEditModal}
+                                            onMouseEnter={e => { e.currentTarget.style.background = '#f0e6d2'; e.currentTarget.style.transform = 'translateX(5px)'; }}
+                                            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.transform = 'none'; }}>
+                                            <i className={a.icon} style={{ color: '#374151', width: '20px', textAlign: 'center' }}></i>
+                                            <span>{a.label}</span>
+                                        </div>
+                                    ) : (
+                                        <Link key={a.label} to={a.to} style={sideItem}
+                                            onMouseEnter={e => { e.currentTarget.style.background = '#f0e6d2'; e.currentTarget.style.transform = 'translateX(5px)'; }}
+                                            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.transform = 'none'; }}>
+                                            <i className={a.icon} style={{ color: '#374151', width: '20px', textAlign: 'center' }}></i>
+                                            <span>{a.label}</span>
+                                        </Link>
+                                    )
                                 ))}
                             </div>
                         </div>
@@ -398,6 +457,98 @@ export default function CommunityDashboard() {
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
                                 <button type="button" onClick={() => setShowEventModal(false)} style={{ padding: '0.5rem 1rem', background: '#e5e7eb', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: '500' }}>Cancel</button>
                                 <button type="submit" style={{ padding: '0.5rem 1rem', background: '#3c6e71', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: '500' }}>Add Event</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit Community Modal */}
+            {showEditModal && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, backdropFilter: 'blur(4px)' }}
+                    onClick={() => setShowEditModal(false)}>
+                    <div style={{ background: '#fff', borderRadius: '16px', padding: '0', width: '560px', maxWidth: '90vw', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 8px 30px rgba(0,0,0,0.2)' }}
+                        onClick={e => e.stopPropagation()}>
+                        <div style={{ background: 'linear-gradient(135deg, #3c6e71, #284b63)', padding: '1.5rem 2rem', borderTopLeftRadius: '16px', borderTopRightRadius: '16px', color: '#fff' }}>
+                            <h2 style={{ fontSize: '1.3rem', fontWeight: '700', fontFamily: "'Playfair Display', Georgia, serif" }}>
+                                <i className="fas fa-edit" style={{ marginRight: '0.5rem' }}></i>Edit Community
+                            </h2>
+                        </div>
+                        <form onSubmit={handleEditSave} style={{ padding: '2rem' }}>
+                            {/* Logo Upload */}
+                            <div style={{ marginBottom: '1.5rem' }}>
+                                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#374151', marginBottom: '0.5rem' }}>Community Logo</label>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+                                    <div style={{
+                                        width: '88px', height: '88px', borderRadius: '50%', overflow: 'hidden', flexShrink: 0,
+                                        border: '2px dashed #d1d5db', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        background: '#f9fafb', cursor: 'pointer'
+                                    }}
+                                        onClick={() => document.getElementById('edit-logo-input').click()}
+                                    >
+                                        {editImagePreview ? (
+                                            <img src={editImagePreview} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        ) : (
+                                            <div style={{ textAlign: 'center' }}>
+                                                <i className="fas fa-camera" style={{ fontSize: '1.4rem', color: '#9ca3af', display: 'block', marginBottom: '0.2rem' }}></i>
+                                                <span style={{ fontSize: '0.6rem', color: '#9ca3af' }}>Upload</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <input id="edit-logo-input" type="file" accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml"
+                                            onChange={handleEditImageChange} style={{ display: 'none' }} />
+                                        <button type="button" onClick={() => document.getElementById('edit-logo-input').click()}
+                                            style={{ background: '#eef2ff', color: '#4f46e5', border: 'none', padding: '0.45rem 0.9rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem' }}>
+                                            <i className="fas fa-upload" style={{ marginRight: '0.3rem' }}></i>
+                                            {editImagePreview ? 'Change Logo' : 'Upload Logo'}
+                                        </button>
+                                        {editImagePreview && (
+                                            <button type="button" onClick={() => { setEditImageFile(null); setEditImagePreview(null); }}
+                                                style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.8rem', marginLeft: '0.5rem' }}>
+                                                <i className="fas fa-trash" style={{ marginRight: '0.2rem' }}></i>Remove
+                                            </button>
+                                        )}
+                                        <p style={{ fontSize: '0.72rem', color: '#9ca3af', marginTop: '0.3rem' }}>JPG, PNG, GIF, WebP or SVG</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div style={{ marginBottom: '1rem' }}>
+                                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#374151', marginBottom: '0.25rem' }}>Community Name *</label>
+                                <input type="text" required value={editForm.name} onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))}
+                                    style={{ width: '100%', border: '1px solid #d1d5db', borderRadius: '8px', padding: '0.6rem 0.85rem', fontSize: '0.9rem', boxSizing: 'border-box' }} />
+                            </div>
+                            <div style={{ marginBottom: '1rem' }}>
+                                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#374151', marginBottom: '0.25rem' }}>Description *</label>
+                                <textarea required rows={4} value={editForm.description} onChange={e => setEditForm(p => ({ ...p, description: e.target.value }))}
+                                    style={{ width: '100%', border: '1px solid #d1d5db', borderRadius: '8px', padding: '0.6rem 0.85rem', fontSize: '0.9rem', resize: 'vertical', boxSizing: 'border-box' }} />
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#374151', marginBottom: '0.25rem' }}>Location *</label>
+                                    <input type="text" required value={editForm.location} onChange={e => setEditForm(p => ({ ...p, location: e.target.value }))}
+                                        style={{ width: '100%', border: '1px solid #d1d5db', borderRadius: '8px', padding: '0.6rem 0.85rem', fontSize: '0.9rem', boxSizing: 'border-box' }} />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#374151', marginBottom: '0.25rem' }}>Category</label>
+                                    <select value={editForm.category} onChange={e => setEditForm(p => ({ ...p, category: e.target.value }))}
+                                        style={{ width: '100%', border: '1px solid #d1d5db', borderRadius: '8px', padding: '0.6rem 0.85rem', fontSize: '0.9rem', boxSizing: 'border-box' }}>
+                                        <option value="">Select</option>
+                                        <option value="education">Education</option>
+                                        <option value="environment">Environment</option>
+                                        <option value="health">Health</option>
+                                        <option value="technology">Technology</option>
+                                        <option value="social">Social</option>
+                                        <option value="other">Other</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+                                <button type="button" onClick={() => setShowEditModal(false)} style={{ padding: '0.6rem 1.25rem', background: '#e5e7eb', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.9rem' }}>Cancel</button>
+                                <button type="submit" disabled={editSaving} style={{ padding: '0.6rem 1.25rem', background: editSaving ? '#9ca3af' : '#3c6e71', color: '#fff', border: 'none', borderRadius: '8px', cursor: editSaving ? 'not-allowed' : 'pointer', fontWeight: '600', fontSize: '0.9rem' }}>
+                                    {editSaving ? 'Saving...' : 'Save Changes'}
+                                </button>
                             </div>
                         </form>
                     </div>

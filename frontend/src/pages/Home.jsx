@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api/api';
+import { getMediaUrl } from '../utils/media';
 
 /* ─── Scroll Reveal Hook ─── */
 function useScrollReveal() {
@@ -12,7 +13,6 @@ function useScrollReveal() {
             ([entry]) => {
                 if (entry.isIntersecting) {
                     el.classList.add('visible');
-                    // also reveal children with scroll-reveal
                     el.querySelectorAll('.scroll-reveal').forEach(c => c.classList.add('visible'));
                     observer.unobserve(el);
                 }
@@ -43,7 +43,7 @@ function AnimatedCounter({ end, duration = 1800, label, icon, color }) {
                     const start = performance.now();
                     const animate = (now) => {
                         const progress = Math.min((now - start) / duration, 1);
-                        const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+                        const eased = 1 - Math.pow(1 - progress, 3);
                         setCount(Math.round(eased * end));
                         if (progress < 1) requestAnimationFrame(animate);
                     };
@@ -108,6 +108,81 @@ function SectionHeader({ badge, title, subtitle }) {
     );
 }
 
+/* ─── Step Card (extracted from .map() to fix hook violation) ─── */
+function StepCard({ step, index }) {
+    const ref = useScrollReveal();
+    return (
+        <div ref={ref} className="scroll-reveal timeline-step card-hover"
+            style={{
+                background: '#fff', borderRadius: '16px', padding: '2rem 1.5rem',
+                boxShadow: '0 4px 14px rgba(0,0,0,0.05)', textAlign: 'center',
+                border: '1px solid rgba(0,0,0,0.04)', position: 'relative'
+            }}>
+            <div style={{
+                position: 'absolute', top: '-14px', left: '50%', transform: 'translateX(-50%)',
+                background: 'linear-gradient(135deg, #4f46e5, #7c3aed)', color: '#fff',
+                width: '30px', height: '30px', borderRadius: '50%',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '0.8rem', fontWeight: '700',
+                boxShadow: '0 2px 8px rgba(79,70,229,0.4)'
+            }}>{index + 1}</div>
+            <div style={{
+                width: '64px', height: '64px', background: '#eef2ff',
+                borderRadius: '16px', display: 'flex', alignItems: 'center',
+                justifyContent: 'center', margin: '0.5rem auto 1.25rem'
+            }}>
+                <i className={step.icon} style={{ color: '#4f46e5', fontSize: '1.5rem' }}></i>
+            </div>
+            <h3 style={{ fontWeight: '700', color: '#1f2937', marginBottom: '0.6rem', fontSize: '1.1rem' }}>
+                {step.title}
+            </h3>
+            <p style={{ color: '#6b7280', fontSize: '0.9rem', lineHeight: 1.65 }}>
+                {step.desc}
+            </p>
+        </div>
+    );
+}
+
+/* ─── Testimonial Card (extracted from .map() to fix hook violation) ─── */
+function TestimonialCard({ testimonial }) {
+    const ref = useScrollReveal();
+    return (
+        <div ref={ref} className="scroll-reveal card-hover"
+            style={{
+                background: '#fff', borderRadius: '16px', padding: '2rem 1.75rem',
+                boxShadow: '0 4px 14px rgba(0,0,0,0.05)',
+                border: '1px solid rgba(0,0,0,0.04)', position: 'relative'
+            }}>
+            <i className="fas fa-quote-left" style={{
+                position: 'absolute', top: '1.25rem', right: '1.25rem',
+                color: '#e0e7ff', fontSize: '1.5rem'
+            }}></i>
+            <div style={{ display: 'flex', gap: '0.35rem', marginBottom: '1rem' }}>
+                {[...Array(5)].map((_, j) => (
+                    <i key={j} className="fas fa-star" style={{ color: '#fbbf24', fontSize: '0.8rem' }}></i>
+                ))}
+            </div>
+            <p style={{ color: '#374151', fontSize: '0.92rem', lineHeight: 1.7, marginBottom: '1.25rem', fontStyle: 'italic' }}>
+                "{testimonial.quote}"
+            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div style={{
+                    width: '40px', height: '40px', borderRadius: '50%',
+                    background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: '#fff', fontWeight: '700', fontSize: '0.9rem'
+                }}>
+                    {testimonial.name.charAt(0)}
+                </div>
+                <div>
+                    <div style={{ fontWeight: '700', color: '#1f2937', fontSize: '0.9rem' }}>{testimonial.name}</div>
+                    <div style={{ color: '#6b7280', fontSize: '0.8rem' }}>{testimonial.role}</div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 /* ═══════════════════════════════════════════
    HOME PAGE
    ═══════════════════════════════════════════ */
@@ -117,14 +192,12 @@ export default function Home() {
 
     useEffect(() => {
         api.get('/stats').then(r => setStats(r.data)).catch(() => { });
-        api.get('/projects?limit=3').then(r => setProjects(Array.isArray(r.data) ? r.data.slice(0, 3) : [])).catch(() => { });
+        api.get('/projects/featured').then(r => setProjects(Array.isArray(r.data) ? r.data : [])).catch(() => { });
     }, []);
 
     const featuresRef = useScrollReveal();
-    const projectsRef = useScrollReveal();
     const ctaRef = useScrollReveal();
 
-    /* ─── FEATURES DATA ─── */
     const features = [
         { icon: 'fas fa-share-nodes', title: 'Resource Sharing', desc: 'Share documents, tools, and knowledge across communities seamlessly.', color: '#4f46e5' },
         { icon: 'fas fa-code-branch', title: 'Project Collaboration', desc: 'Launch cross-community projects and track progress in real time.', color: '#7c3aed' },
@@ -134,11 +207,16 @@ export default function Home() {
         { icon: 'fas fa-lock-open', title: 'Open & Free', desc: 'Fully open-source platform — no hidden costs, no restrictions.', color: '#dc2626' },
     ];
 
-    /* ─── HOW IT WORKS DATA ─── */
     const steps = [
         { icon: 'fas fa-user-plus', title: 'Create Account', desc: 'Sign up in seconds as an individual or community admin.' },
         { icon: 'fas fa-search', title: 'Discover & Join', desc: 'Find communities that align with your goals and interests.' },
         { icon: 'fas fa-rocket', title: 'Collaborate & Grow', desc: 'Launch projects, share resources, and make a real impact together.' },
+    ];
+
+    const testimonials = [
+        { quote: 'EKYAM transformed the way our student clubs collaborate. We went from isolated groups to a unified campus community.', name: 'Priya Sharma', role: 'Student Union Lead' },
+        { quote: 'The resource sharing feature alone saved us hundreds of hours. It\'s like having a shared brain for our entire network.', name: 'Arjun Mehta', role: 'NGO Coordinator' },
+        { quote: 'We discovered partner communities we never knew existed. The map feature is a game-changer for grassroots organizations.', name: 'Riya Patel', role: 'Community Organizer' },
     ];
 
     return (
@@ -152,7 +230,6 @@ export default function Home() {
                 color: '#fff', padding: '6rem 1rem 7rem', textAlign: 'center',
                 position: 'relative', overflow: 'hidden'
             }}>
-                {/* Floating orbs */}
                 {[
                     { w: 320, t: -80, r: -60, bg: 'rgba(129,140,248,0.12)', anim: 'floatOrb 8s ease-in-out infinite' },
                     { w: 220, b: -50, l: -40, bg: 'rgba(99,102,241,0.1)', anim: 'floatOrbSlow 10s ease-in-out infinite' },
@@ -171,7 +248,6 @@ export default function Home() {
                 ))}
 
                 <div style={{ maxWidth: '820px', margin: '0 auto', position: 'relative', zIndex: 2 }}>
-                    {/* Trust badge */}
                     <div className="hero-text-reveal" style={{
                         display: 'inline-flex', alignItems: 'center', gap: '0.75rem',
                         background: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(10px)',
@@ -247,41 +323,9 @@ export default function Home() {
                     subtitle="Three simple steps to join the movement and start making a difference."
                 />
                 <div className="home-steps-grid stagger-children" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
-                    {steps.map((step, i) => {
-                        const ref = useScrollReveal();
-                        return (
-                            <div key={step.title} ref={ref} className="scroll-reveal timeline-step card-hover"
-                                style={{
-                                    background: '#fff', borderRadius: '16px', padding: '2rem 1.5rem',
-                                    boxShadow: '0 4px 14px rgba(0,0,0,0.05)', textAlign: 'center',
-                                    border: '1px solid rgba(0,0,0,0.04)', position: 'relative'
-                                }}>
-                                {/* Step number badge */}
-                                <div style={{
-                                    position: 'absolute', top: '-14px', left: '50%', transform: 'translateX(-50%)',
-                                    background: 'linear-gradient(135deg, #4f46e5, #7c3aed)', color: '#fff',
-                                    width: '30px', height: '30px', borderRadius: '50%',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    fontSize: '0.8rem', fontWeight: '700',
-                                    boxShadow: '0 2px 8px rgba(79,70,229,0.4)'
-                                }}>{i + 1}</div>
-
-                                <div style={{
-                                    width: '64px', height: '64px', background: '#eef2ff',
-                                    borderRadius: '16px', display: 'flex', alignItems: 'center',
-                                    justifyContent: 'center', margin: '0.5rem auto 1.25rem'
-                                }}>
-                                    <i className={step.icon} style={{ color: '#4f46e5', fontSize: '1.5rem' }}></i>
-                                </div>
-                                <h3 style={{ fontWeight: '700', color: '#1f2937', marginBottom: '0.6rem', fontSize: '1.1rem' }}>
-                                    {step.title}
-                                </h3>
-                                <p style={{ color: '#6b7280', fontSize: '0.9rem', lineHeight: 1.65 }}>
-                                    {step.desc}
-                                </p>
-                            </div>
-                        );
-                    })}
+                    {steps.map((step, i) => (
+                        <StepCard key={step.title} step={step} index={i} />
+                    ))}
                 </div>
             </section>
 
@@ -332,117 +376,115 @@ export default function Home() {
                     subtitle="Hear from the people who are already making an impact with EKYAM."
                 />
                 <div className="stagger-children" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
-                    {[
-                        { quote: 'EKYAM transformed the way our student clubs collaborate. We went from isolated groups to a unified campus community.', name: 'Priya Sharma', role: 'Student Union Lead' },
-                        { quote: 'The resource sharing feature alone saved us hundreds of hours. It\'s like having a shared brain for our entire network.', name: 'Arjun Mehta', role: 'NGO Coordinator' },
-                        { quote: 'We discovered partner communities we never knew existed. The map feature is a game-changer for grassroots organizations.', name: 'Riya Patel', role: 'Community Organizer' },
-                    ].map((t, i) => {
-                        const ref = useScrollReveal();
-                        return (
-                            <div key={i} ref={ref} className="scroll-reveal card-hover"
-                                style={{
-                                    background: '#fff', borderRadius: '16px', padding: '2rem 1.75rem',
-                                    boxShadow: '0 4px 14px rgba(0,0,0,0.05)',
-                                    border: '1px solid rgba(0,0,0,0.04)', position: 'relative'
-                                }}>
-                                {/* Quote icon */}
-                                <i className="fas fa-quote-left" style={{
-                                    position: 'absolute', top: '1.25rem', right: '1.25rem',
-                                    color: '#e0e7ff', fontSize: '1.5rem'
-                                }}></i>
-                                <div style={{ display: 'flex', gap: '0.35rem', marginBottom: '1rem' }}>
-                                    {[...Array(5)].map((_, j) => (
-                                        <i key={j} className="fas fa-star" style={{ color: '#fbbf24', fontSize: '0.8rem' }}></i>
-                                    ))}
-                                </div>
-                                <p style={{ color: '#374151', fontSize: '0.92rem', lineHeight: 1.7, marginBottom: '1.25rem', fontStyle: 'italic' }}>
-                                    "{t.quote}"
-                                </p>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                    <div style={{
-                                        width: '40px', height: '40px', borderRadius: '50%',
-                                        background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        color: '#fff', fontWeight: '700', fontSize: '0.9rem'
-                                    }}>
-                                        {t.name.charAt(0)}
-                                    </div>
-                                    <div>
-                                        <div style={{ fontWeight: '700', color: '#1f2937', fontSize: '0.9rem' }}>{t.name}</div>
-                                        <div style={{ color: '#6b7280', fontSize: '0.8rem' }}>{t.role}</div>
-                                    </div>
-                                </div>
-                            </div>
-                        );
-                    })}
+                    {testimonials.map((t, i) => (
+                        <TestimonialCard key={i} testimonial={t} />
+                    ))}
                 </div>
             </section>
 
             {/* ━━━ FEATURED PROJECTS ━━━ */}
             {projects.length > 0 && (
-                <section style={{ background: '#fff', padding: '5rem 1rem' }}>
+                <section style={{ background: 'linear-gradient(180deg, #0f172a 0%, #1e293b 100%)', padding: '5rem 1rem' }}>
                     <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
-                        <SectionHeader
-                            badge="Showcase"
-                            title="Featured Projects"
-                            subtitle="Explore impactful projects built by our vibrant communities."
-                        />
-                        <div ref={projectsRef} className="home-projects-grid stagger-children scroll-reveal"
-                            style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
-                            {projects.map(p => (
-                                <Link key={p._id} to={`/projects/${p._id}`} className="scroll-reveal card-hover"
-                                    style={{
-                                        textDecoration: 'none', background: '#f9fafb',
-                                        borderRadius: '16px', overflow: 'hidden',
-                                        boxShadow: '0 2px 12px rgba(0,0,0,0.05)',
-                                        border: '1px solid rgba(0,0,0,0.04)',
-                                        display: 'block'
-                                    }}>
-                                    <div style={{
-                                        height: '170px',
-                                        background: 'linear-gradient(135deg, #4338ca, #6366f1)',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        overflow: 'hidden', position: 'relative'
-                                    }}>
-                                        {p.image ? (
-                                            <img src={`http://localhost:5000${p.image}`} alt={p.name}
-                                                style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                        ) : (
-                                            <i className="fas fa-project-diagram" style={{ fontSize: '2.5rem', color: 'rgba(255,255,255,0.25)' }}></i>
-                                        )}
-                                        {/* Status badge on image */}
+                        <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
+                            <span style={{
+                                display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+                                background: 'rgba(251,191,36,0.12)', color: '#fbbf24',
+                                padding: '0.35rem 1rem', borderRadius: '50px', fontSize: '0.82rem',
+                                fontWeight: '600', marginBottom: '0.85rem', border: '1px solid rgba(251,191,36,0.2)'
+                            }}>
+                                <i className="fas fa-star" style={{ fontSize: '0.7rem' }}></i> Featured Projects
+                            </span>
+                            <h2 style={{ fontSize: '2.15rem', fontWeight: '800', color: '#f1f5f9', marginBottom: '0.6rem', lineHeight: 1.25 }}>
+                                Projects Making an Impact
+                            </h2>
+                            <p style={{ color: '#94a3b8', fontSize: '1.05rem', maxWidth: '560px', margin: '0 auto', lineHeight: 1.7 }}>
+                                Handpicked projects that showcase the best of collaborative innovation.
+                            </p>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
+                            {projects.map(p => {
+                                const statusMap = {
+                                    active: { bg: '#065f46', text: '#6ee7b7' },
+                                    planning: { bg: '#78350f', text: '#fde68a' },
+                                    completed: { bg: '#312e81', text: '#c7d2fe' },
+                                    in_progress: { bg: '#1e3a5f', text: '#93c5fd' },
+                                    on_hold: { bg: '#374151', text: '#d1d5db' },
+                                };
+                                const sc = statusMap[p.status] || statusMap.active;
+                                return (
+                                    <Link key={p._id} to={`/projects/${p._id}`}
+                                        style={{
+                                            textDecoration: 'none', background: '#1e293b',
+                                            borderRadius: '16px', overflow: 'hidden',
+                                            border: '1px solid rgba(148,163,184,0.1)',
+                                            display: 'block', transition: 'transform 0.25s ease, box-shadow 0.25s ease',
+                                        }}
+                                        onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 12px 40px rgba(0,0,0,0.4)'; }}
+                                        onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}
+                                    >
                                         <div style={{
-                                            position: 'absolute', top: '0.75rem', right: '0.75rem',
-                                            background: p.status === 'active' ? '#d1fae5' : '#e0e7ff',
-                                            color: p.status === 'active' ? '#065f46' : '#3730a3',
-                                            padding: '0.2rem 0.65rem', borderRadius: '6px',
-                                            fontSize: '0.72rem', fontWeight: '600', textTransform: 'uppercase',
-                                            letterSpacing: '0.5px'
+                                            height: '180px',
+                                            background: 'linear-gradient(135deg, #312e81, #4338ca)',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            overflow: 'hidden', position: 'relative'
                                         }}>
-                                            {p.status || 'active'}
+                                            {p.image ? (
+                                                <img src={getMediaUrl(p.image)} alt={p.name}
+                                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                            ) : (
+                                                <i className="fas fa-project-diagram" style={{ fontSize: '2.5rem', color: 'rgba(255,255,255,0.15)' }}></i>
+                                            )}
+                                            <div style={{
+                                                position: 'absolute', top: '0.75rem', left: '0.75rem',
+                                                background: 'rgba(251,191,36,0.9)', color: '#78350f',
+                                                width: '28px', height: '28px', borderRadius: '50%',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                fontSize: '0.7rem', boxShadow: '0 2px 8px rgba(251,191,36,0.4)'
+                                            }}>
+                                                <i className="fas fa-star"></i>
+                                            </div>
+                                            <div style={{
+                                                position: 'absolute', top: '0.75rem', right: '0.75rem',
+                                                background: sc.bg, color: sc.text,
+                                                padding: '0.2rem 0.65rem', borderRadius: '6px',
+                                                fontSize: '0.72rem', fontWeight: '600', textTransform: 'uppercase',
+                                                letterSpacing: '0.5px'
+                                            }}>
+                                                {(p.status || 'active').replace('_', ' ')}
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div style={{ padding: '1.35rem' }}>
-                                        <h3 style={{ fontWeight: '700', color: '#1f2937', marginBottom: '0.4rem', fontSize: '1.05rem' }}>
-                                            {p.name}
-                                        </h3>
-                                        <p style={{ color: '#6b7280', fontSize: '0.85rem', lineHeight: 1.6 }} className="line-clamp-2">
-                                            {p.description}
-                                        </p>
-                                    </div>
-                                </Link>
-                            ))}
+                                        <div style={{ padding: '1.35rem' }}>
+                                            <h3 style={{ fontWeight: '700', color: '#f1f5f9', marginBottom: '0.45rem', fontSize: '1.08rem' }}>
+                                                {p.name}
+                                            </h3>
+                                            <p style={{ color: '#94a3b8', fontSize: '0.85rem', lineHeight: 1.6, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', marginBottom: '1rem' }}>
+                                                {p.description}
+                                            </p>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.78rem', color: '#64748b' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem' }}>
+                                                    <span><i className="fas fa-users" style={{ marginRight: '0.3rem' }}></i>{p.members?.length || p.memberCount || 0}</span>
+                                                    <span><i className="fas fa-calendar" style={{ marginRight: '0.3rem' }}></i>{p.createdAt ? new Date(p.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : 'N/A'}</span>
+                                                </div>
+                                                <span style={{ color: '#818cf8', fontWeight: '600', fontSize: '0.8rem' }}>
+                                                    View <i className="fas fa-arrow-right" style={{ fontSize: '0.65rem', marginLeft: '0.2rem' }}></i>
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </Link>
+                                );
+                            })}
                         </div>
                         <div style={{ textAlign: 'center', marginTop: '2.5rem' }}>
-                            <Link to="/projects" className="card-hover" style={{
-                                background: '#4f46e5', color: '#fff', padding: '0.75rem 2rem',
+                            <Link to="/projects" style={{
+                                background: 'rgba(99,102,241,0.15)', color: '#a5b4fc', padding: '0.75rem 2rem',
                                 borderRadius: '12px', textDecoration: 'none', fontWeight: '600',
                                 display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
-                                boxShadow: '0 4px 14px rgba(79,70,229,0.3)',
-                                transition: 'background 0.2s ease'
+                                border: '1px solid rgba(99,102,241,0.25)',
+                                transition: 'background 0.2s ease, border-color 0.2s ease'
                             }}
-                                onMouseEnter={e => e.currentTarget.style.background = '#4338ca'}
-                                onMouseLeave={e => e.currentTarget.style.background = '#4f46e5'}
+                                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(99,102,241,0.25)'; e.currentTarget.style.borderColor = 'rgba(99,102,241,0.4)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(99,102,241,0.15)'; e.currentTarget.style.borderColor = 'rgba(99,102,241,0.25)'; }}
                             >
                                 View All Projects <i className="fas fa-arrow-right" style={{ fontSize: '0.85rem' }}></i>
                             </Link>
@@ -459,7 +501,6 @@ export default function Home() {
                     borderRadius: '24px', padding: '4rem 2rem', textAlign: 'center',
                     color: '#fff', position: 'relative', overflow: 'hidden'
                 }}>
-                    {/* Decorative orbs */}
                     <div style={{ position: 'absolute', top: -60, right: -60, width: 200, height: 200, background: 'rgba(255,255,255,0.06)', borderRadius: '50%', animation: 'floatOrbSlow 8s ease-in-out infinite' }} />
                     <div style={{ position: 'absolute', bottom: -40, left: -40, width: 140, height: 140, background: 'rgba(255,255,255,0.04)', borderRadius: '50%', animation: 'floatOrb 10s ease-in-out infinite 2s' }} />
 

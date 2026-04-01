@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import api from '../api/api';
+import { getMediaUrl } from '../utils/media';
 
 export default function Communities() {
     const { user } = useAuth();
@@ -24,9 +25,6 @@ export default function Communities() {
 
     const categories = [...new Set(communities.map(c => c.category).filter(Boolean))];
 
-    const handleJoin = async (id) => {
-        try { await api.post(`/communities/${id}/join`); setCommunities(prev => prev.map(c => c._id === id ? { ...c, memberCount: (c.memberCount || 0) + 1 } : c)); } catch (err) { alert(err.response?.data?.message || 'Error'); }
-    };
 
     return (
         <div style={{ minHeight: '100vh', background: theme.bg, fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
@@ -94,7 +92,7 @@ export default function Communities() {
                                 onMouseEnter={e => e.currentTarget.style.boxShadow = theme.shadowHover}
                                 onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}>
                                 {c.image ? (
-                                    <img src={c.image.startsWith('http') ? c.image : `http://localhost:5000${c.image}`} alt={c.name} style={{ width: '100%', height: '192px', objectFit: 'cover' }} />
+                                    <img src={c.image.startsWith('http') ? c.image : getMediaUrl(c.image)} alt={c.name} style={{ width: '100%', height: '192px', objectFit: 'cover' }} />
                                 ) : (
                                     <div style={{ width: '100%', height: '192px', background: theme.accentLight, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                         <i className="fas fa-users" style={{ fontSize: '3rem', color: '#a5b4fc' }}></i>
@@ -121,7 +119,7 @@ export default function Communities() {
                                         <div style={{ width: '28px', height: '28px', background: theme.accentLight, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                             <i className="fas fa-user" style={{ fontSize: '0.65rem', color: theme.accentText }}></i>
                                         </div>
-                                        <span style={{ fontSize: '0.8rem', color: theme.textFaint }}>Admin: {c.createdBy?.fullName || c.createdBy?.username || 'Unknown'}</span>
+                                        <span style={{ fontSize: '0.8rem', color: theme.textFaint }}>Admin: {c.adminId?.fullName || c.adminId?.username || 'Unknown'}</span>
                                     </div>
                                 </div>
                             </div>
