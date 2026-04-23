@@ -9,6 +9,7 @@ import AdminRoute from './components/AdminRoute';
 import LoadingSpinner from './components/LoadingSpinner';
 import ScrollToTop from './components/ScrollToTop';
 import ScrollRestoration from './components/ScrollRestoration';
+import GlobalLoader from './components/GlobalLoader';
 
 // ─── Lazy-loaded pages (code-split) ───
 const Home = lazy(() => import('./pages/Home'));
@@ -122,6 +123,7 @@ function App() {
             <AuthProvider>
                 <Router>
                     <ScrollRestoration />
+                    <GlobalLoader />
                     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
                         <Navbar />
                         <main style={{ flex: 1 }}>
