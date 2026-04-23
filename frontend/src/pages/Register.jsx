@@ -58,13 +58,13 @@ export default function Register() {
                                 <div>
                                     <label style={labelStyle}><i className="fas fa-user" style={{ color: '#6366f1', marginRight: '0.35rem' }}></i>Full Name *</label>
                                     <input type="text" value={form.fullName} onChange={e => setForm({ ...form, fullName: e.target.value })}
-                                        placeholder="John Doe" style={inputStyle} required
+                                        placeholder="Name and Surname" style={inputStyle} required
                                         onFocus={e => e.target.style.borderColor = '#6366f1'} onBlur={e => e.target.style.borderColor = theme.border} />
                                 </div>
                                 <div>
                                     <label style={labelStyle}><i className="fas fa-at" style={{ color: '#6366f1', marginRight: '0.35rem' }}></i>Username *</label>
                                     <input type="text" value={form.username} onChange={e => setForm({ ...form, username: e.target.value })}
-                                        placeholder="johndoe" style={inputStyle} required
+                                        placeholder="username" style={inputStyle} required
                                         onFocus={e => e.target.style.borderColor = '#6366f1'} onBlur={e => e.target.style.borderColor = theme.border} />
                                 </div>
                             </div>
@@ -72,7 +72,7 @@ export default function Register() {
                             <div style={{ marginBottom: '1rem' }}>
                                 <label style={labelStyle}><i className="fas fa-envelope" style={{ color: '#6366f1', marginRight: '0.35rem' }}></i>Email *</label>
                                 <input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })}
-                                    placeholder="john@example.com" style={inputStyle} required
+                                    placeholder="email@example.com" style={inputStyle} required
                                     onFocus={e => e.target.style.borderColor = '#6366f1'} onBlur={e => e.target.style.borderColor = theme.border} />
                             </div>
 
