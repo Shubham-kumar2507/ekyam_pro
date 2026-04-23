@@ -20,7 +20,7 @@ export default function Register() {
         setLoading(true); setError('');
         try {
             await register({ username: form.username, email: form.email, password: form.password, fullName: form.fullName, userType: form.userType, location: form.location });
-            navigate('/dashboard');
+            navigate(`/verify-email?email=${encodeURIComponent(form.email)}`);
         } catch (err) {
             setError(err.response?.data?.message || 'Registration failed. Please try again.');
         } finally { setLoading(false); }

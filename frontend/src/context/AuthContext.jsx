@@ -26,9 +26,21 @@ export const AuthProvider = ({ children }) => {
 
     const register = async (formData) => {
         const { data } = await api.post('/auth/register', formData);
+        // Registration now returns { message, email, requiresVerification }
+        // Do NOT store token or set user — they must verify first
+        return data;
+    };
+
+    const verifyEmail = async (email, otp) => {
+        const { data } = await api.post('/auth/verify-email', { email, otp });
         localStorage.setItem('ekyam_token', data.token);
         localStorage.setItem('ekyam_user', JSON.stringify(data));
         setUser(data);
+        return data;
+    };
+
+    const resendOTP = async (email) => {
+        const { data } = await api.post('/auth/resend-otp', { email });
         return data;
     };
 
@@ -45,7 +57,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, loading, login, register, logout, updateUser }}>
+        <AuthContext.Provider value={{ user, loading, login, register, logout, updateUser, verifyEmail, resendOTP }}>
             {children}
         </AuthContext.Provider>
     );

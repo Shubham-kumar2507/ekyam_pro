@@ -256,7 +256,12 @@ export default function Login() {
             await login(form.username, form.password);
             navigate('/dashboard');
         } catch (err) {
-            setError(err.response?.data?.message || 'Login failed. Please try again.');
+            const data = err.response?.data;
+            if (err.response?.status === 403 && data?.requiresVerification) {
+                navigate(`/verify-email?email=${encodeURIComponent(data.email)}`);
+            } else {
+                setError(data?.message || 'Login failed. Please try again.');
+            }
         } finally {
             setLoading(false);
         }

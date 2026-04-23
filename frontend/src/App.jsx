@@ -41,6 +41,7 @@ const UserPublicProfile = lazy(() => import('./pages/UserPublicProfile'));
 const MyNetwork = lazy(() => import('./pages/MyNetwork'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
+const VerifyEmail = lazy(() => import('./pages/VerifyEmail'));
 const AdminPanel = lazy(() => import('./pages/AdminPanel'));
 
 /* ─── Premium 404 Page ─── */
@@ -133,6 +134,7 @@ function App() {
                                     <Route path="/" element={<Home />} />
                                     <Route path="/login" element={<Login />} />
                                     <Route path="/register" element={<Register />} />
+                                    <Route path="/verify-email" element={<VerifyEmail />} />
                                     <Route path="/forgot-password" element={<ForgotPassword />} />
                                     <Route path="/reset-password/:token" element={<ResetPassword />} />
                                     <Route path="/communities" element={<Communities />} />
