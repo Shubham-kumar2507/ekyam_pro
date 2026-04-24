@@ -82,7 +82,7 @@ router.post('/', protect, projectUpload, upload.single('image'), async (req, res
             members: [{ userId: req.user._id, role: 'creator' }],
             memberCount: 1
         };
-        if (req.file) projectData.image = `/uploads/projects/${req.file.filename}`;
+        if (req.file) projectData.image = req.file.path; // Cloudinary URL
 
         const project = await Project.create(projectData);
         res.status(201).json(project);
@@ -102,7 +102,7 @@ router.put('/:id', protect, projectUpload, upload.single('image'), async (req, r
         allowedFields.forEach(field => {
             if (req.body[field] !== undefined) updateData[field] = req.body[field];
         });
-        if (req.file) updateData.image = `/uploads/projects/${req.file.filename}`;
+        if (req.file) updateData.image = req.file.path; // Cloudinary URL
 
         const updated = await Project.findByIdAndUpdate(req.params.id, updateData, { new: true });
         res.json(updated);
@@ -237,7 +237,7 @@ router.post('/:id/files', protect, projectFileUpload, upload.array('files', 10),
 
         const newFiles = req.files.map(f => ({
             fileName: f.originalname,
-            filePath: `/uploads/project-files/${f.filename}`,
+            filePath: f.path, // Cloudinary URL
             fileSize: f.size
         }));
 

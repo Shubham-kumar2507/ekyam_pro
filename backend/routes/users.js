@@ -29,7 +29,8 @@ router.put('/profile', protect, async (req, res) => {
 router.post('/profile/picture', protect, profileUpload, upload.single('profileImage'), async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ message: 'No image file provided' });
-        const profileImage = `/uploads/profiles/${req.file.filename}`;
+        // req.file.path is the permanent Cloudinary URL
+        const profileImage = req.file.path;
         const user = await User.findByIdAndUpdate(
             req.user._id,
             { profileImage },

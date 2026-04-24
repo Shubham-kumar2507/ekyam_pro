@@ -74,7 +74,7 @@ router.post('/', protect, resourceUpload, upload.fields([{ name: 'file', maxCoun
 
         if (req.files?.file?.[0]) {
             const f = req.files.file[0];
-            resourceData.filePath = `/uploads/resources/${f.filename}`;
+            resourceData.filePath = f.path; // Cloudinary URL
             resourceData.fileName = f.originalname;
             resourceData.fileSize = f.size;
         }
@@ -83,7 +83,7 @@ router.post('/', protect, resourceUpload, upload.fields([{ name: 'file', maxCoun
         if (req.files?.files && req.files.files.length > 0) {
             resourceData.files = req.files.files.map(f => ({
                 fileName: f.originalname,
-                filePath: `/uploads/resources/${f.filename}`,
+                filePath: f.path, // Cloudinary URL
                 fileSize: f.size
             }));
         }
@@ -108,7 +108,7 @@ router.put('/:id', protect, resourceUpload, upload.fields([{ name: 'file', maxCo
         });
         if (req.files?.file?.[0]) {
             const f = req.files.file[0];
-            updateData.filePath = `/uploads/resources/${f.filename}`;
+            updateData.filePath = f.path; // Cloudinary URL
             updateData.fileName = f.originalname;
             updateData.fileSize = f.size;
         }
@@ -116,7 +116,7 @@ router.put('/:id', protect, resourceUpload, upload.fields([{ name: 'file', maxCo
         if (req.files?.files && req.files.files.length > 0) {
             const newFiles = req.files.files.map(f => ({
                 fileName: f.originalname,
-                filePath: `/uploads/resources/${f.filename}`,
+                filePath: f.path, // Cloudinary URL
                 fileSize: f.size
             }));
             const resource2 = await Resource.findById(req.params.id);
@@ -164,7 +164,7 @@ router.post('/:id/files', protect, resourceUpload, upload.array('files', 10), as
 
         const newFiles = req.files.map(f => ({
             fileName: f.originalname,
-            filePath: `/uploads/resources/${f.filename}`,
+            filePath: f.path, // Cloudinary URL
             fileSize: f.size
         }));
 

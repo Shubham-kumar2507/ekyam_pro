@@ -65,7 +65,7 @@ router.get('/:id', async (req, res) => {
 router.post('/', protect, communityUpload, upload.single('image'), async (req, res) => {
     try {
         const { name, description, location, category, coordinates } = req.body;
-        const image = req.file ? `/uploads/communities/${req.file.filename}` : (req.body.image || '');
+        const image = req.file ? req.file.path : (req.body.image || ''); // Cloudinary URL
         const parsedCoords = coordinates ? (typeof coordinates === 'string' ? JSON.parse(coordinates) : coordinates) : {};
         const community = await Community.create({ name, description, location, category, image, adminId: req.user._id, coordinates: parsedCoords });
         // Add creator as a CommunityMember with admin role
@@ -87,7 +87,7 @@ router.put('/:id', protect, communityUpload, upload.single('image'), async (req,
             updateData.coordinates = JSON.parse(updateData.coordinates);
         }
         if (req.file) {
-            updateData.image = `/uploads/communities/${req.file.filename}`;
+            updateData.image = req.file.path; // Cloudinary URL
         }
         const updated = await Community.findByIdAndUpdate(req.params.id, updateData, { new: true });
         res.json(updated);

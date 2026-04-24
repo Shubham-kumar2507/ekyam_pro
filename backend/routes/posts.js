@@ -126,7 +126,7 @@ router.post('/', protect, postUpload, upload.array('media', 5), async (req, res)
             req.files.forEach(file => {
                 const isVideo = file.mimetype.startsWith('video/');
                 media.push({
-                    url: `/uploads/posts/${file.filename}`,
+                    url: file.path, // Cloudinary URL
                     type: isVideo ? 'video' : 'image'
                 });
             });
