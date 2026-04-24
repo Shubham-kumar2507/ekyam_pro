@@ -79,8 +79,8 @@ export default function Footer() {
             <div style={bottomStyle}>
                 <p style={{ color: theme.footerText, fontSize: '0.85rem' }}>© {new Date().getFullYear()} EKYAM. All rights reserved.</p>
                 <div style={{ display: 'flex', gap: '1.5rem' }}>
-                    <a href="#" style={{ color: theme.footerText, fontSize: '0.85rem', textDecoration: 'none' }}>Privacy Policy</a>
-                    <a href="#" style={{ color: theme.footerText, fontSize: '0.85rem', textDecoration: 'none' }}>Terms of Service</a>
+                    <Link to="/privacy-policy" style={{ color: theme.footerText, fontSize: '0.85rem', textDecoration: 'none' }}>Privacy Policy</Link>
+                    <Link to="/terms-of-service" style={{ color: theme.footerText, fontSize: '0.85rem', textDecoration: 'none' }}>Terms of Service</Link>
                 </div>
             </div>
         </footer>

@@ -43,6 +43,8 @@ const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const VerifyEmail = lazy(() => import('./pages/VerifyEmail'));
 const AdminPanel = lazy(() => import('./pages/AdminPanel'));
+const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
+const TermsOfService = lazy(() => import('./pages/TermsOfService'));
 
 /* ─── Premium 404 Page ─── */
 function NotFoundPage() {
@@ -149,6 +151,8 @@ function App() {
                                     <Route path="/faq" element={<FAQ />} />
                                     <Route path="/help" element={<Help />} />
                                     <Route path="/guidelines" element={<Guidelines />} />
+                                    <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+                                    <Route path="/terms-of-service" element={<TermsOfService />} />
 
                                     {/* Protected */}
                                     <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
