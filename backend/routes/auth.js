@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 const User = require('../models/User');
 
 const generateToken = (id) => {
@@ -12,43 +12,35 @@ const generateOTP = () => {
     return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
-// ─── Gmail Email Transporter ───────────────────────────────────────────────
-// Sends emails directly through your Gmail account using an App Password.
-// Make sure EMAIL_USER and EMAIL_PASS are set in your .env / Render env vars.
-// Gmail App Passwords can have spaces for readability — strip them for SMTP auth.
-const emailUser = (process.env.EMAIL_USER || '').trim();
-const emailPass = (process.env.EMAIL_PASS || '').replace(/\s/g, '');
+// ─── Resend Email Client ───────────────────────────────────────────────────
+// Uses Resend's HTTP API instead of SMTP — Render free tier blocks SMTP ports
+// (25, 465, 587), so we must use an HTTP-based email service.
+// Set RESEND_API_KEY in your .env / Render env vars.
+const resend = new Resend(process.env.RESEND_API_KEY);
+const EMAIL_FROM = process.env.EMAIL_FROM || 'EKYAM <onboarding@resend.dev>';
 
-const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 465,
-    secure: true,               // use SSL on port 465
-    auth: {
-        user: emailUser,
-        pass: emailPass,
-    },
-    tls: { rejectUnauthorized: false },
-    connectionTimeout: 10000,   // 10s to establish connection
-    greetingTimeout: 10000,     // 10s for SMTP greeting
-    socketTimeout: 15000,       // 15s for socket inactivity
-});
+// Log email config at startup
+console.log(`📧 Email config — from: ${EMAIL_FROM}, API key: ${process.env.RESEND_API_KEY ? '(set)' : '(NOT SET!)'}`);
 
-// Verify connection at startup
-transporter.verify((err) => {
-    if (err) {
-        console.error(`❌ Email transporter error: ${err.message}`);
-        console.error(`   Full error:`, err);
-        console.error(`   EMAIL_USER: ${emailUser || '(not set)'}`);
-        console.error(`   EMAIL_PASS: ${emailPass ? `(set, ${emailPass.length} chars)` : '(not set)'}`);
-    } else {
-        console.log(`✅ Email transporter ready — sending from: ${emailUser}`);
+// Generic send-email helper using Resend HTTP API
+const sendEmail = async ({ to, subject, html }) => {
+    const { data, error } = await resend.emails.send({
+        from: EMAIL_FROM,
+        to,
+        subject,
+        html,
+    });
+    if (error) {
+        console.error('Resend API error:', error);
+        throw new Error(error.message || 'Failed to send email via Resend');
     }
-});
+    console.log(`✅ Email sent to ${to} — id: ${data?.id}`);
+    return data;
+};
 
-// Send OTP email via Gmail
+// Send OTP email
 const sendOTPEmail = async (email, otp, fullName) => {
-    await transporter.sendMail({
-        from: `"EKYAM" <${emailUser}>`,
+    await sendEmail({
         to: email,
         subject: '🔐 Verify Your EKYAM Account',
         html: `
@@ -284,8 +276,7 @@ const forgotPassword = async (req, res) => {
         const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
         const resetLink = `${frontendUrl}/reset-password/${resetToken}`;
 
-        await transporter.sendMail({
-            from: `"EKYAM" <${emailUser}>`,
+        await sendEmail({
             to: user.email,
             subject: '🔑 Reset Your EKYAM Password',
             html: `
