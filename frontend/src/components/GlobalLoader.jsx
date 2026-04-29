@@ -8,16 +8,24 @@ export default function GlobalLoader() {
 
     useEffect(() => {
         let activeRequests = 0;
+        let safetyTimer = null;
         
         const handleStart = () => {
             activeRequests++;
             setIsLoading(true);
+            // Safety net: force-clear after 35s in case api-load-end is never fired
+            clearTimeout(safetyTimer);
+            safetyTimer = setTimeout(() => {
+                activeRequests = 0;
+                setIsLoading(false);
+            }, 35000);
         };
         
         const handleEnd = () => {
             activeRequests--;
             if (activeRequests <= 0) {
                 activeRequests = 0;
+                clearTimeout(safetyTimer);
                 setIsLoading(false);
             }
         };
@@ -28,6 +36,7 @@ export default function GlobalLoader() {
         return () => {
             window.removeEventListener('api-load-start', handleStart);
             window.removeEventListener('api-load-end', handleEnd);
+            clearTimeout(safetyTimer);
         };
     }, []);
 

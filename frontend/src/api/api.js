@@ -2,6 +2,7 @@ import axios from 'axios';
 
 const api = axios.create({
     baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+    timeout: 30000, // 30s — prevents infinite spinner on cold-start / network loss
 });
 
 api.interceptors.request.use((config) => {
@@ -15,16 +16,19 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
     (response) => {
-        if (response.config && !response.config.skipLoader) {
+        if (!response.config?.skipLoader) {
             window.dispatchEvent(new Event('api-load-end'));
         }
         return response;
     },
     (error) => {
-        if (error.config && !error.config.skipLoader) {
+        // IMPORTANT: always fire api-load-end even when error.config is null
+        // (network failures, timeouts, CORS errors all set error.config = undefined)
+        // Previously `error.config && ...` caused the loader to stick forever.
+        if (!error.config?.skipLoader) {
             window.dispatchEvent(new Event('api-load-end'));
         }
-        if (error.response && error.response.status === 401) {
+        if (error.response?.status === 401) {
             const url = error.config?.url || '';
             if (!url.includes('/auth/login') && !url.includes('/auth/register')) {
                 localStorage.removeItem('ekyam_token');
