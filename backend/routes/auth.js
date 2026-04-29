@@ -16,24 +16,32 @@ const generateOTP = () => {
 // Resend is a production-grade transactional email service that works reliably
 // from Render/AWS (unlike Gmail SMTP which blocks cloud-hosting IPs).
 // Sign up free at https://resend.com → get API key → add RESEND_API_KEY to Render env vars.
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 // FROM address: use RESEND_FROM_EMAIL env var if you've verified a custom domain,
 // otherwise falls back to Resend's shared sender (works for testing, no setup needed).
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
 
-// Log email config at startup so you can verify in Render's log panel
+// Lazy factory — creates the Resend client only when sending.
+// This prevents a startup crash if RESEND_API_KEY hasn't been set yet.
+const getResend = () => {
+    if (!process.env.RESEND_API_KEY) {
+        console.error('❌ RESEND_API_KEY is not set — add it to Render Environment Variables!');
+        console.error('   → Sign up free at https://resend.com and get an API key');
+        throw new Error('Email service not configured: RESEND_API_KEY is missing');
+    }
+    return new Resend(process.env.RESEND_API_KEY);
+};
+
+// Log email config at startup (without crashing if key is missing)
 if (process.env.RESEND_API_KEY) {
     console.log(`✅ Resend email ready — sending from: ${FROM_EMAIL}`);
 } else {
-    console.error('❌ RESEND_API_KEY is not set — emails will NOT be sent!');
-    console.error('   → Go to https://resend.com, create a free account, get an API key');
-    console.error('   → Add RESEND_API_KEY to Render Environment Variables and redeploy');
+    console.warn('⚠️  RESEND_API_KEY not set — email features disabled until key is added to Render env vars');
 }
 
 // Send OTP email via Resend
 const sendOTPEmail = async (email, otp, fullName) => {
-    const { error } = await resend.emails.send({
+    const { error } = await getResend().emails.send({
         from: `EKYAM <${FROM_EMAIL}>`,
         to: email,
         subject: '🔐 Verify Your EKYAM Account',
@@ -271,7 +279,7 @@ const forgotPassword = async (req, res) => {
         const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
         const resetLink = `${frontendUrl}/reset-password/${resetToken}`;
 
-        const { error: sendError } = await resend.emails.send({
+        const { error: sendError } = await getResend().emails.send({
             from: `EKYAM <${FROM_EMAIL}>`,
             to: user.email,
             subject: '🔑 Reset Your EKYAM Password',
