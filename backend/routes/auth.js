@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 const User = require('../models/User');
 
 const generateToken = (id) => {
@@ -12,39 +12,29 @@ const generateOTP = () => {
     return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
-// Email transporter
-// NOTE: Gmail App Passwords are sometimes stored with spaces for readability
-// (e.g. "xxxx xxxx xxxx xxxx"). Strip them so SMTP auth succeeds.
-const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: (process.env.EMAIL_PASS || '').replace(/\s+/g, ''),
-    },
-    tls: {
-        rejectUnauthorized: false, // Allows self-signed certs in some hosting envs
-    },
-});
+// ─── Resend Email Client ───────────────────────────────────────────────────
+// Resend is a production-grade transactional email service that works reliably
+// from Render/AWS (unlike Gmail SMTP which blocks cloud-hosting IPs).
+// Sign up free at https://resend.com → get API key → add RESEND_API_KEY to Render env vars.
+const resend = new Resend(process.env.RESEND_API_KEY);
 
-// Verify transporter config at startup — gives a clear log so you can see
-// immediately in Render's log panel whether email is configured correctly.
-transporter.verify((err) => {
-    const user = process.env.EMAIL_USER || '(not set)';
-    const passSet = process.env.EMAIL_PASS ? '✔ set' : '✘ NOT SET';
-    console.log(`📧 Email config — user: ${user} | pass: ${passSet}`);
-    if (err) {
-        console.error('❌ Email transporter failed:', err.message);
-        console.error('   → Check EMAIL_USER and EMAIL_PASS in Render Environment Variables');
-        console.error('   → For Gmail, generate a fresh App Password at myaccount.google.com/apppasswords');
-    } else {
-        console.log('✅ Email transporter ready — emails will be sent');
-    }
-});
+// FROM address: use RESEND_FROM_EMAIL env var if you've verified a custom domain,
+// otherwise falls back to Resend's shared sender (works for testing, no setup needed).
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
 
-// Send OTP email
+// Log email config at startup so you can verify in Render's log panel
+if (process.env.RESEND_API_KEY) {
+    console.log(`✅ Resend email ready — sending from: ${FROM_EMAIL}`);
+} else {
+    console.error('❌ RESEND_API_KEY is not set — emails will NOT be sent!');
+    console.error('   → Go to https://resend.com, create a free account, get an API key');
+    console.error('   → Add RESEND_API_KEY to Render Environment Variables and redeploy');
+}
+
+// Send OTP email via Resend
 const sendOTPEmail = async (email, otp, fullName) => {
-    await transporter.sendMail({
-        from: `"EKYAM" <${process.env.EMAIL_USER}>`,
+    const { error } = await resend.emails.send({
+        from: `EKYAM <${FROM_EMAIL}>`,
         to: email,
         subject: '🔐 Verify Your EKYAM Account',
         html: `
@@ -66,6 +56,7 @@ const sendOTPEmail = async (email, otp, fullName) => {
             </div>
         `,
     });
+    if (error) throw new Error(`Resend error: ${error.message}`);
 };
 
 // @route POST /api/auth/register
@@ -280,8 +271,8 @@ const forgotPassword = async (req, res) => {
         const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
         const resetLink = `${frontendUrl}/reset-password/${resetToken}`;
 
-        await transporter.sendMail({
-            from: `"EKYAM" <${process.env.EMAIL_USER}>`,
+        const { error: sendError } = await resend.emails.send({
+            from: `EKYAM <${FROM_EMAIL}>`,
             to: user.email,
             subject: '🔑 Reset Your EKYAM Password',
             html: `
@@ -301,6 +292,7 @@ const forgotPassword = async (req, res) => {
                 </div>
             `,
         });
+        if (sendError) throw new Error(`Resend error: ${sendError.message}`);
 
         return res.json({ message: 'Password reset link has been sent to your email' });
     } catch (err) {
