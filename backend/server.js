@@ -83,14 +83,8 @@ app.use('/api/admin', require('./routes/admin'));
 // ─── Health Check ───
 app.get('/api', (req, res) => res.json({ message: 'Ekyam API is running', env: process.env.NODE_ENV }));
 
-// ─── Serve frontend in production ───
-if (process.env.NODE_ENV === 'production') {
-    const frontendDist = path.join(__dirname, '..', 'frontend', 'dist');
-    app.use(express.static(frontendDist));
-    app.use((req, res) => {
-        res.sendFile(path.join(frontendDist, 'index.html'));
-    });
-}
+// NOTE: Frontend is deployed separately on Vercel.
+// This backend serves API routes only — no static frontend files here.
 
 // ─── Global Error Handler ───
 app.use((err, req, res, _next) => {
