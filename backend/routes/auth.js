@@ -13,12 +13,26 @@ const generateOTP = () => {
 };
 
 // Email transporter
+// NOTE: Gmail App Passwords are sometimes stored with spaces for readability
+// (e.g. "xxxx xxxx xxxx xxxx"). Strip them so SMTP auth succeeds.
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
         user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
+        pass: (process.env.EMAIL_PASS || '').replace(/\s+/g, ''),
     },
+    tls: {
+        rejectUnauthorized: false, // Allows self-signed certs in some hosting envs
+    },
+});
+
+// Verify transporter config at startup — logs an error but does NOT crash the server
+transporter.verify((err) => {
+    if (err) {
+        console.error('❌ Email transporter misconfigured:', err.message);
+    } else {
+        console.log('✅ Email transporter ready');
+    }
 });
 
 // Send OTP email
