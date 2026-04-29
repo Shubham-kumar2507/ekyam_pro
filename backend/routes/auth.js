@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const { Resend } = require('resend');
+const nodemailer = require('nodemailer');
 const User = require('../models/User');
 
 const generateToken = (id) => {
@@ -12,37 +12,34 @@ const generateOTP = () => {
     return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
-// ─── Resend Email Client ───────────────────────────────────────────────────
-// Resend is a production-grade transactional email service that works reliably
-// from Render/AWS (unlike Gmail SMTP which blocks cloud-hosting IPs).
-// Sign up free at https://resend.com → get API key → add RESEND_API_KEY to Render env vars.
+// ─── Gmail Email Transporter ───────────────────────────────────────────────
+// Sends emails directly through your Gmail account using an App Password.
+// Make sure EMAIL_USER and EMAIL_PASS are set in your .env / Render env vars.
+// Gmail App Passwords can have spaces for readability — strip them for SMTP auth.
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: (process.env.EMAIL_PASS || '').replace(/\s/g, ''),
+    },
+    tls: { rejectUnauthorized: false },
+});
 
-// FROM address: use RESEND_FROM_EMAIL env var if you've verified a custom domain,
-// otherwise falls back to Resend's shared sender (works for testing, no setup needed).
-const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
-
-// Lazy factory — creates the Resend client only when sending.
-// This prevents a startup crash if RESEND_API_KEY hasn't been set yet.
-const getResend = () => {
-    if (!process.env.RESEND_API_KEY) {
-        console.error('❌ RESEND_API_KEY is not set — add it to Render Environment Variables!');
-        console.error('   → Sign up free at https://resend.com and get an API key');
-        throw new Error('Email service not configured: RESEND_API_KEY is missing');
+// Verify connection at startup
+transporter.verify((err) => {
+    if (err) {
+        console.error(`❌ Email transporter error: ${err.message}`);
+        console.error(`   EMAIL_USER: ${process.env.EMAIL_USER || '(not set)'}`);
+        console.error(`   EMAIL_PASS: ${process.env.EMAIL_PASS ? '(set)' : '(not set)'}`);
+    } else {
+        console.log(`✅ Email transporter ready — sending from: ${process.env.EMAIL_USER}`);
     }
-    return new Resend(process.env.RESEND_API_KEY);
-};
+});
 
-// Log email config at startup (without crashing if key is missing)
-if (process.env.RESEND_API_KEY) {
-    console.log(`✅ Resend email ready — sending from: ${FROM_EMAIL}`);
-} else {
-    console.warn('⚠️  RESEND_API_KEY not set — email features disabled until key is added to Render env vars');
-}
-
-// Send OTP email via Resend
+// Send OTP email via Gmail
 const sendOTPEmail = async (email, otp, fullName) => {
-    const { error } = await getResend().emails.send({
-        from: `EKYAM <${FROM_EMAIL}>`,
+    await transporter.sendMail({
+        from: `"EKYAM" <${process.env.EMAIL_USER}>`,
         to: email,
         subject: '🔐 Verify Your EKYAM Account',
         html: `
@@ -64,7 +61,6 @@ const sendOTPEmail = async (email, otp, fullName) => {
             </div>
         `,
     });
-    if (error) throw new Error(`Resend error: ${error.message}`);
 };
 
 // @route POST /api/auth/register
@@ -279,8 +275,8 @@ const forgotPassword = async (req, res) => {
         const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
         const resetLink = `${frontendUrl}/reset-password/${resetToken}`;
 
-        const { error: sendError } = await getResend().emails.send({
-            from: `EKYAM <${FROM_EMAIL}>`,
+        await transporter.sendMail({
+            from: `"EKYAM" <${process.env.EMAIL_USER}>`,
             to: user.email,
             subject: '🔑 Reset Your EKYAM Password',
             html: `
@@ -300,7 +296,6 @@ const forgotPassword = async (req, res) => {
                 </div>
             `,
         });
-        if (sendError) throw new Error(`Resend error: ${sendError.message}`);
 
         return res.json({ message: 'Password reset link has been sent to your email' });
     } catch (err) {
