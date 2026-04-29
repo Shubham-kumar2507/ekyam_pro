@@ -26,12 +26,18 @@ const transporter = nodemailer.createTransport({
     },
 });
 
-// Verify transporter config at startup — logs an error but does NOT crash the server
+// Verify transporter config at startup — gives a clear log so you can see
+// immediately in Render's log panel whether email is configured correctly.
 transporter.verify((err) => {
+    const user = process.env.EMAIL_USER || '(not set)';
+    const passSet = process.env.EMAIL_PASS ? '✔ set' : '✘ NOT SET';
+    console.log(`📧 Email config — user: ${user} | pass: ${passSet}`);
     if (err) {
-        console.error('❌ Email transporter misconfigured:', err.message);
+        console.error('❌ Email transporter failed:', err.message);
+        console.error('   → Check EMAIL_USER and EMAIL_PASS in Render Environment Variables');
+        console.error('   → For Gmail, generate a fresh App Password at myaccount.google.com/apppasswords');
     } else {
-        console.log('✅ Email transporter ready');
+        console.log('✅ Email transporter ready — emails will be sent');
     }
 });
 
