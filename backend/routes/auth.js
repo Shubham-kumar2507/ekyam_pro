@@ -16,30 +16,39 @@ const generateOTP = () => {
 // Sends emails directly through your Gmail account using an App Password.
 // Make sure EMAIL_USER and EMAIL_PASS are set in your .env / Render env vars.
 // Gmail App Passwords can have spaces for readability — strip them for SMTP auth.
+const emailUser = (process.env.EMAIL_USER || '').trim();
+const emailPass = (process.env.EMAIL_PASS || '').replace(/\s/g, '');
+
 const transporter = nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true,               // use SSL on port 465
     auth: {
-        user: process.env.EMAIL_USER,
-        pass: (process.env.EMAIL_PASS || '').replace(/\s/g, ''),
+        user: emailUser,
+        pass: emailPass,
     },
     tls: { rejectUnauthorized: false },
+    connectionTimeout: 10000,   // 10s to establish connection
+    greetingTimeout: 10000,     // 10s for SMTP greeting
+    socketTimeout: 15000,       // 15s for socket inactivity
 });
 
 // Verify connection at startup
 transporter.verify((err) => {
     if (err) {
         console.error(`❌ Email transporter error: ${err.message}`);
-        console.error(`   EMAIL_USER: ${process.env.EMAIL_USER || '(not set)'}`);
-        console.error(`   EMAIL_PASS: ${process.env.EMAIL_PASS ? '(set)' : '(not set)'}`);
+        console.error(`   Full error:`, err);
+        console.error(`   EMAIL_USER: ${emailUser || '(not set)'}`);
+        console.error(`   EMAIL_PASS: ${emailPass ? `(set, ${emailPass.length} chars)` : '(not set)'}`);
     } else {
-        console.log(`✅ Email transporter ready — sending from: ${process.env.EMAIL_USER}`);
+        console.log(`✅ Email transporter ready — sending from: ${emailUser}`);
     }
 });
 
 // Send OTP email via Gmail
 const sendOTPEmail = async (email, otp, fullName) => {
     await transporter.sendMail({
-        from: `"EKYAM" <${process.env.EMAIL_USER}>`,
+        from: `"EKYAM" <${emailUser}>`,
         to: email,
         subject: '🔐 Verify Your EKYAM Account',
         html: `
@@ -276,7 +285,7 @@ const forgotPassword = async (req, res) => {
         const resetLink = `${frontendUrl}/reset-password/${resetToken}`;
 
         await transporter.sendMail({
-            from: `"EKYAM" <${process.env.EMAIL_USER}>`,
+            from: `"EKYAM" <${emailUser}>`,
             to: user.email,
             subject: '🔑 Reset Your EKYAM Password',
             html: `
