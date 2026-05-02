@@ -1,6 +1,5 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const { Resend } = require('resend');
 const User = require('../models/User');
 
 const generateToken = (id) => {
@@ -12,30 +11,52 @@ const generateOTP = () => {
     return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
-// ─── Resend Email Client ───────────────────────────────────────────────────
-// Uses Resend's HTTP API instead of SMTP — Render free tier blocks SMTP ports
-// (25, 465, 587), so we must use an HTTP-based email service.
-// Set RESEND_API_KEY in your .env / Render env vars.
-const resend = new Resend(process.env.RESEND_API_KEY);
-const EMAIL_FROM = process.env.EMAIL_FROM || 'EKYAM <onboarding@resend.dev>';
+// ─── Gmail API Email Client (OAuth2 over HTTPS) ────────────────────────────
+// Uses Gmail REST API instead of SMTP — bypasses Render's SMTP port blocks.
+// Requires GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN in .env
+const { google } = require('googleapis');
+
+const EMAIL_FROM_ADDR = process.env.EMAIL_USER || 'ekyampro@gmail.com';
+const EMAIL_FROM_NAME = 'EKYAM';
+
+const oAuth2Client = new google.auth.OAuth2(
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET,
+    'https://developers.google.com/oauthplayground'
+);
+oAuth2Client.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN });
 
 // Log email config at startup
-console.log(`📧 Email config — from: ${EMAIL_FROM}, API key: ${process.env.RESEND_API_KEY ? '(set)' : '(NOT SET!)'}`);
+console.log(`📧 Email config — from: ${EMAIL_FROM_NAME} <${EMAIL_FROM_ADDR}>, Gmail API: ${process.env.GOOGLE_REFRESH_TOKEN ? '(configured)' : '(NOT SET!)'}`);
 
-// Generic send-email helper using Resend HTTP API
+// Generic send-email helper using Gmail REST API
 const sendEmail = async ({ to, subject, html }) => {
-    const { data, error } = await resend.emails.send({
-        from: EMAIL_FROM,
-        to,
-        subject,
+    // Build the RFC 2822 formatted email
+    const rawMessage = [
+        `From: ${EMAIL_FROM_NAME} <${EMAIL_FROM_ADDR}>`,
+        `To: ${to}`,
+        `Subject: ${subject}`,
+        'MIME-Version: 1.0',
+        'Content-Type: text/html; charset=utf-8',
+        '',
         html,
+    ].join('\r\n');
+
+    // Base64url encode the message
+    const encodedMessage = Buffer.from(rawMessage)
+        .toString('base64')
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+
+    const gmail = google.gmail({ version: 'v1', auth: oAuth2Client });
+    const result = await gmail.users.messages.send({
+        userId: 'me',
+        requestBody: { raw: encodedMessage },
     });
-    if (error) {
-        console.error('Resend API error:', error);
-        throw new Error(error.message || 'Failed to send email via Resend');
-    }
-    console.log(`✅ Email sent to ${to} — id: ${data?.id}`);
-    return data;
+
+    console.log(`✅ Email sent to ${to} — messageId: ${result.data.id}`);
+    return result.data;
 };
 
 // Send OTP email
