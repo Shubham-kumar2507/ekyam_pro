@@ -60,9 +60,9 @@ export default function Contact() {
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginTop: '2rem' }}>
-                    {[['fas fa-map-marker-alt', 'Address', '123 Community Lane, Unity City'],
-                    ['fas fa-phone', 'Phone', '+91 9876 543 210'],
-                    ['fas fa-envelope', 'Email', 'support@ekyam.org']].map(([icon, title, val]) => (
+                    {[['fas fa-map-marker-alt', 'Address', 'LPU, Phagwara, punjab, India, 144411'],
+                    ['fas fa-phone', 'Phone', '+91 9931372825'],
+                    ['fas fa-envelope', 'Email', 'ekyampro@gmail.com']].map(([icon, title, val]) => (
                         <div key={title} style={{ background: '#fff', borderRadius: '12px', padding: '1.5rem', textAlign: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
                             <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '48px', height: '48px', background: '#e0e7ff', borderRadius: '50%', marginBottom: '0.75rem' }}>
                                 <i className={icon} style={{ color: '#4f46e5' }}></i>
