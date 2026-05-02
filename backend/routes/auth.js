@@ -30,12 +30,18 @@ oAuth2Client.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN })
 console.log(`📧 Email config — from: ${EMAIL_FROM_NAME} <${EMAIL_FROM_ADDR}>, Gmail API: ${process.env.GOOGLE_REFRESH_TOKEN ? '(configured)' : '(NOT SET!)'}`);
 
 // Generic send-email helper using Gmail REST API
+// Encode subject for UTF-8 (emojis, special chars) using RFC 2047
+const encodeSubject = (subject) => {
+    const encoded = Buffer.from(subject, 'utf-8').toString('base64');
+    return `=?UTF-8?B?${encoded}?=`;
+};
+
 const sendEmail = async ({ to, subject, html }) => {
     // Build the RFC 2822 formatted email
     const rawMessage = [
         `From: ${EMAIL_FROM_NAME} <${EMAIL_FROM_ADDR}>`,
         `To: ${to}`,
-        `Subject: ${subject}`,
+        `Subject: ${encodeSubject(subject)}`,
         'MIME-Version: 1.0',
         'Content-Type: text/html; charset=utf-8',
         '',
